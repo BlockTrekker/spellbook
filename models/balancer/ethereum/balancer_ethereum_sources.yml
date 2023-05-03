@@ -1,6 +1,11 @@
 version: 2
 
 sources:
+
+  - name: clustered_sources
+    tables:
+      - name: clustered_logs
+  
   - name: balancer_v2_ethereum
     description: >
       Decoded tables related to Balancer v2, an automated portfolio manager and trading platform, on Ethereum.

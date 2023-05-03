@@ -16,47 +16,59 @@
 --
 -- Balancer v2 Pools Tokens Weights
 --
-SELECT
-    registered.poolId AS pool_id,
-    tokens.token_address,
-    weights.normalized_weight / POWER(10, 18) AS normalized_weight
-FROM {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }} registered
-INNER JOIN {{ source('balancer_v2_ethereum', 'WeightedPoolFactory_call_create') }} call_create
-    ON call_create.output_0 = SUBSTRING(registered.poolId, 0, 42)
-    LATERAL VIEW posexplode(call_create.tokens) tokens AS pos, token_address
-    LATERAL VIEW posexplode(call_create.weights) weights AS pos, normalized_weight
-WHERE tokens.pos = weights.pos
-    {% if is_incremental() %}
-    AND registered.evt_block_time >= date_trunc("day", now() - interval '1 week')
-    {% endif %}
-UNION ALL
+WITH registered AS (
+    SELECT poolId, evt_block_time
+    FROM {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }}
+),
+
+call_create_1 AS (
+    SELECT output_0, tokens, weights
+    FROM {{ source('balancer_v2_ethereum', 'WeightedPoolFactory_call_create') }}
+),
+
+call_create_2 AS (
+    SELECT output_0, tokens, weights
+    FROM {{ source('balancer_v2_ethereum', 'WeightedPool2TokensFactory_call_create') }}
+),
+
+call_create_3 AS (
+    SELECT output_0, tokens, normalizedWeights AS weights
+    FROM {{ source('balancer_v2_ethereum', 'WeightedPoolV2Factory_call_create') }}
+)
 
 SELECT
     registered.poolId AS pool_id,
     tokens.token_address,
-    weights.normalized_weight / POWER(10, 18) AS normalized_weight
-FROM {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }} registered
-INNER JOIN {{ source('balancer_v2_ethereum', 'WeightedPool2TokensFactory_call_create') }} call_create
-    ON call_create.output_0 = SUBSTRING(registered.poolId, 0, 42)
-    LATERAL VIEW posexplode(call_create.tokens) tokens AS pos, token_address
-    LATERAL VIEW posexplode(call_create.weights) weights AS pos, normalized_weight
-WHERE tokens.pos = weights.pos
-    {% if is_incremental() %}
-    AND registered.evt_block_time >= date_trunc("day", now() - interval '1 week')
-    {% endif %}
+    weights.normalized_weight / POW(10, 18) AS normalized_weight
+FROM registered
+LEFT JOIN call_create_1
+    ON CAST(call_create_1.output_0 AS STRING) = CAST(SUBSTR(registered.poolId, 0, 43) AS STRING)
+LEFT JOIN UNNEST(call_create_1.tokens) AS tokens WITH OFFSET AS pos
+LEFT JOIN UNNEST(call_create_1.weights) AS weights WITH OFFSET AS pos
+    ON tokens.pos = weights.pos
+WHERE registered.evt_block_time >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)
 UNION ALL
-
 SELECT
     registered.poolId AS pool_id,
     tokens.token_address,
-    weights.normalized_weight / POWER(10, 18) AS normalized_weight
-FROM {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }} registered
-INNER JOIN {{ source('balancer_v2_ethereum', 'WeightedPoolV2Factory_call_create') }} call_create
-    ON call_create.output_0 = SUBSTRING(registered.poolId, 0, 42)
-    LATERAL VIEW posexplode(call_create.tokens) tokens AS pos, token_address
-    LATERAL VIEW posexplode(call_create.normalizedWeights) weights AS pos, normalized_weight
-WHERE tokens.pos = weights.pos
-    {% if is_incremental() %}
-    AND registered.evt_block_time >= date_trunc("day", now() - interval '1 week')
-    {% endif %}
-;
+    weights.normalized_weight / POW(10, 18) AS normalized_weight
+FROM registered
+LEFT JOIN call_create_2
+    ON call_create_2.output_0 = SUBSTR(registered.poolId, 0, 43)
+LEFT JOIN UNNEST(call_create_2.tokens) AS tokens WITH OFFSET AS pos
+LEFT JOIN UNNEST(call_create_2.weights) AS weights WITH OFFSET AS pos
+    ON tokens.pos = weights.pos
+WHERE registered.evt_block_time >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)
+UNION ALL
+SELECT
+    registered.poolId AS pool_id,
+    tokens.token_address,
+    weights.normalized_weight / POW(10, 18) AS normalized_weight
+FROM registered
+LEFT JOIN call_create_3
+    ON call_create_3.output_0 = SUBSTR(registered.poolId, 0, 43)
+LEFT JOIN UNNEST(call_create_3.tokens) AS tokens WITH OFFSET AS pos
+LEFT JOIN UNNEST(call_create_3.weights) AS weights WITH OFFSET AS pos
+    ON tokens.pos = weights.pos
+WHERE registered.evt_block_time >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 WEEK)
+

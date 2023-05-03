@@ -22,24 +22,25 @@ with v2 as (
         s.evt_block_time,
         s.evt_tx_hash,
         s.evt_index
-    from {{ source('balancer_v2_ethereum', 'Vault_evt_Swap') }} s
-    inner join {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }} p
+    from {{ source('balancer_v2_ethereum', 'Vault_evt_Swap') }} as s
+    inner join {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }} as p
     on s.poolId = p.poolId
     {% if not is_incremental() %}
-        where s.evt_block_time >= '{{project_start_date}}'
+        where s.evt_block_time >= '{{ project_start_date }}'
     {% endif %}
     {% if is_incremental() %}
-        where s.evt_block_time >= date_trunc("day", now() - interval '1 week')
+        where s.evt_block_time >= date_trunc('day', now() - interval '1 week')
     {% endif %}
 ),
+
 prices as (
     select * from {{ source('prices', 'usd') }}
     where blockchain = 'ethereum'
     {% if not is_incremental() %}
-        and minute >= '{{project_start_date}}'
+        and minute >= '{{ project_start_date }}'
     {% endif %}
     {% if is_incremental() %}
-        and minute >= date_trunc("day", now() - interval '1 week')
+        and minute >= date_trunc('day', now() - interval '1 week')
     {% endif %}
 )
 
@@ -58,12 +59,12 @@ select
     end as token_pair,
     token_bought_amount_raw / power(10, erc20a.decimals) as token_bought_amount,
     token_sold_amount_raw / power(10, erc20b.decimals) as token_sold_amount,
-    CAST(token_bought_amount_raw AS DECIMAL(38,0)) as token_bought_amount_raw,
-    CAST(token_sold_amount_raw AS DECIMAL(38,0)) as token_sold_amount_raw,
+    CAST(token_bought_amount_raw as decimal(38, 0)) as token_bought_amount_raw,
+    CAST(token_sold_amount_raw as decimal(38, 0)) as token_sold_amount_raw,
     coalesce(
         (token_bought_amount_raw / power(10, p_bought.decimals)) * p_bought.price,
         (token_sold_amount_raw / power(10, p_sold.decimals)) * p_sold.price
-    ) AS amount_usd,
+    ) as amount_usd,
     token_bought_address,
     token_sold_address,
     tx.from as taker,
@@ -74,24 +75,24 @@ select
     tx.to as tx_to,
     evt_index,
     '' as trace_address
-from v2 trades
-inner join {{ source('ethereum', 'transactions') }} tx
+from v2 as trades
+inner join {{ source('ethereum', 'transactions') }} as tx
     on trades.evt_tx_hash = tx.hash
     {% if not is_incremental() %}
-    and tx.block_time >= '{{project_start_date}}'
+    and tx.block_time >= '{{ project_start_date }}'
     {% endif %}
     {% if is_incremental() %}
-    and tx.block_time >= date_trunc("day", now() - interval '1 week')
+    and tx.block_time >= date_trunc('day', now() - interval '1 week')
     {% endif %}
-left join {{ ref('tokens_erc20') }} erc20a
+left join {{ ref('tokens_erc20') }} as erc20a
     on trades.token_bought_address = erc20a.contract_address
     and erc20a.blockchain = 'ethereum'
-left join {{ ref('tokens_erc20') }} erc20b
+left join {{ ref('tokens_erc20') }} as erc20b
     on trades.token_sold_address = erc20b.contract_address
     and erc20b.blockchain = 'ethereum'
-left join prices p_bought
-    ON p_bought.minute = date_trunc('minute', trades.evt_block_time)
+left join prices as p_bought
+    on p_bought.minute = date_trunc('minute', trades.evt_block_time)
     and p_bought.contract_address = trades.token_bought_address
-left join prices p_sold
+left join prices as p_sold
     on p_sold.minute = date_trunc('minute', trades.evt_block_time)
     and p_sold.contract_address = trades.token_sold_address

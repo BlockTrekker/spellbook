@@ -1,6 +1,10 @@
 version: 2
 
 sources:
+  - name: clustered_sources
+    tables:
+      - name: clustered_traces
+      - name: cluseted_logs
   - name: zeroex_ethereum
     freshness:
       warn_after: { count: 12, period: hour }

@@ -18,17 +18,17 @@ WITH pool_labels AS (
 
     prices AS (
         SELECT
-            date_trunc('day', minute) AS day,
+            date_trunc('day', MINUTE) AS day,
             contract_address AS token,
             AVG(price) AS price
         FROM {{ source('prices', 'usd') }}
-        WHERE blockchain = "ethereum"
+        WHERE blockchain = 'ethereum'
         GROUP BY 1, 2
     ),
 
     dex_prices_1 AS (
         SELECT
-            date_trunc('day', HOUR) AS DAY,
+            date_trunc('day', HOUR) AS day,
             contract_address AS token,
             percentile(median_price, 0.5) AS price,
             sum(sample_size) AS sample_size
@@ -43,7 +43,7 @@ WITH pool_labels AS (
             LEAD(DAY, 1, NOW()) OVER (
                 PARTITION BY token
                 ORDER BY
-                    DAY
+                    day
             ) AS day_of_next_change
         FROM
             dex_prices_1
@@ -59,29 +59,29 @@ WITH pool_labels AS (
             (
                 SELECT
                     date_trunc('day', evt_block_time) AS day,
-                    poolId AS pool_id,
-                    tokenIn AS token,
-                    amountIn AS delta
+                    poolid AS pool_id,
+                    tokenin AS token,
+                    amountin AS delta
                 FROM
                     {{ source('balancer_v2_ethereum', 'Vault_evt_Swap') }}
                 UNION
                 ALL
                 SELECT
                     date_trunc('day', evt_block_time) AS day,
-                    poolId AS pool_id,
-                    tokenOut AS token,
-                    -amountOut AS delta
+                    poolid AS pool_id,
+                    tokenout AS token,
+                    -amountout AS delta
                 FROM
                     {{ source('balancer_v2_ethereum', 'Vault_evt_Swap') }}
-            ) swaps
+            ) AS swaps
         GROUP BY 1, 2, 3
     ),
 
 zipped_balance_changes AS (
         SELECT
             date_trunc('day', evt_block_time) AS day,
-            poolId AS pool_id,
-            explode(arrays_zip(tokens, deltas, protocolFeeAmounts)) AS zipped
+            poolid AS pool_id,
+            explode(arrays_zip(tokens, deltas, protocolfeeamounts)) AS zipped
         FROM {{ source('balancer_v2_ethereum', 'Vault_evt_PoolBalanceChanged') }}
     ),
 
@@ -90,7 +90,7 @@ zipped_balance_changes AS (
             day,
             pool_id,
             zipped.tokens AS token,
-            zipped.deltas - zipped.protocolFeeAmounts AS delta
+            zipped.deltas - zipped.protocolfeeamounts AS delta
         FROM zipped_balance_changes
         ORDER BY 1, 2, 3
     ),
@@ -98,9 +98,9 @@ zipped_balance_changes AS (
     managed_changes AS (
         SELECT
             date_trunc('day', evt_block_time) AS day,
-            poolId AS pool_id,
+            poolid AS pool_id,
             token,
-            cashDelta + managedDelta AS delta
+            cashdelta + manageddelta AS delta
         FROM {{ source('balancer_v2_ethereum', 'Vault_evt_PoolBalanceManaged') }}
     ),
 
@@ -136,22 +136,22 @@ zipped_balance_changes AS (
                     delta AS amount
                 FROM
                     managed_changes
-            ) balance
+            ) AS balance
         GROUP BY 1, 2, 3
     ),
 
     cumulative_balance AS (
         SELECT
-            DAY,
+            day,
             pool_id,
             token,
-            LEAD(DAY, 1, NOW()) OVER (PARTITION BY token, pool_id ORDER BY DAY) AS day_of_next_change,
-            SUM(amount) OVER (PARTITION BY pool_id, token ORDER BY DAY ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_amount
+            LEAD(DAY, 1, NOW()) OVER (PARTITION BY token, pool_id ORDER BY day) AS day_of_next_change,
+            SUM(amount) OVER (PARTITION BY pool_id, token ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_amount
         FROM daily_delta_balance
     ),
 
     calendar AS (
-        SELECT explode(sequence(to_date('2021-04-21'), CURRENT_DATE, interval 1 day)) AS day
+        SELECT explode(sequence(to_date('2021-04-21'), CURRENT_DATE, INTERVAL 1 DAY)) AS day
     ),
 
    cumulative_usd_balance AS (
@@ -161,14 +161,14 @@ zipped_balance_changes AS (
             b.token,
             symbol AS token_symbol,
             cumulative_amount / POWER(10, t.decimals) * COALESCE(p1.price, p2.price, 0) AS amount_usd
-        FROM calendar c
-        LEFT JOIN cumulative_balance b ON b.day <= c.day
+        FROM calendar AS c
+        LEFT JOIN cumulative_balance AS b ON b.day <= c.day
         AND c.day < b.day_of_next_change
-        LEFT JOIN {{ ref('tokens_erc20') }} t ON t.contract_address = b.token
-        AND blockchain = "ethereum"
-        LEFT JOIN prices p1 ON p1.day = b.day
+        LEFT JOIN {{ ref('tokens_erc20') }} AS t ON t.contract_address = b.token
+        AND blockchain = 'ethereum'
+        LEFT JOIN prices AS p1 ON p1.day = b.day
         AND p1.token = b.token
-        LEFT JOIN dex_prices p2 ON p2.day <= c.day
+        LEFT JOIN dex_prices AS p2 ON p2.day <= c.day
         AND c.day < p2.day_of_next_change
         AND p2.token = b.token
         WHERE b.token != SUBSTRING(b.pool_id, 0, 42)
@@ -179,8 +179,8 @@ zipped_balance_changes AS (
             b.day,
             b.pool_id,
             SUM(b.amount_usd) / COALESCE(SUM(w.normalized_weight), 1) AS liquidity
-        FROM cumulative_usd_balance b
-        LEFT JOIN {{ ref('balancer_v2_ethereum_pools_tokens_weights') }} w ON b.pool_id = w.pool_id
+        FROM cumulative_usd_balance AS b
+        LEFT JOIN {{ ref('balancer_v2_ethereum_pools_tokens_weights') }} AS w ON b.pool_id = w.pool_id
         AND b.token = w.token_address
         GROUP BY 1, 2
     )
@@ -192,9 +192,9 @@ SELECT
     token AS token_address,
     token_symbol,
     coalesce(amount_usd, liquidity * normalized_weight) AS usd_amount
-FROM pool_liquidity_estimates b
-LEFT JOIN cumulative_usd_balance c ON c.day = b.day
+FROM pool_liquidity_estimates AS b
+LEFT JOIN cumulative_usd_balance AS c ON c.day = b.day
 AND c.pool_id = b.pool_id
-LEFT JOIN {{ ref('balancer_v2_ethereum_pools_tokens_weights') }} w ON b.pool_id = w.pool_id
+LEFT JOIN {{ ref('balancer_v2_ethereum_pools_tokens_weights') }} AS w ON b.pool_id = w.pool_id
 AND w.token_address = c.token
-LEFT JOIN pool_labels p ON p.pool_id = SUBSTRING(b.pool_id, 0, 42)
+LEFT JOIN pool_labels AS p ON p.pool_id = SUBSTRING(b.pool_id, 0, 42)

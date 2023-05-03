@@ -1,0 +1,10 @@
+[sqlfluff]
+dialect = bigquery
+exclude_rules = RF04, L016, L019, L030, L036, L043, L003, L009, RF02, AM06, ST06, CP02
+
+
+[sqlfluff:templater:jinja]
+apply_dbt_builtins = True
+
+[sqlfluff:templater:jinja:macros]
+dbt_config = {% macro config() %}{% for k in kwargs %}{% endfor %}{% endmacro %}

@@ -33,19 +33,19 @@ WITH lbps_call_create AS (
         {% endif %}
         {% endfor %}
     ),
-    
+
     lbps_list AS (
-        SELECT 
+        SELECT
             tokens,
             lower(symbol) AS name,
-            poolId AS pool_id,
-            SUBSTRING(poolId, 0, 42) AS pool_address
-        FROM {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }} c
-        INNER JOIN lbps_call_create cc
+            poolid AS pool_id,
+            SUBSTRING(poolid, 0, 42) AS pool_address
+        FROM {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }} AS c
+        INNER JOIN lbps_call_create AS cc
         ON c.evt_tx_hash = cc.call_tx_hash
         AND cc.call_success
     ),
-    
+
     lbps_weight_update AS (
         {% for lbp_weight_upgrade_contract in lbp_weight_upgrade_contracts %}
         SELECT * FROM {{ lbp_weight_upgrade_contract }}
@@ -58,32 +58,32 @@ WITH lbps_call_create AS (
     last_weight_update AS (
         SELECT *
         FROM (
-            SELECT 
+            SELECT
                 contract_address AS pool_address,
-                from_unixtime(startTime, 'yyyy-MM-dd HH:mm') AS start_time,
-                from_unixtime(endTime, 'yyyy-MM-dd HH:mm') AS end_time,
-                startWeights AS start_weights,
+                from_unixtime(starttime, 'yyyy-MM-dd HH:mm') AS start_time,
+                from_unixtime(endtime, 'yyyy-MM-dd HH:mm') AS end_time,
+                startweights AS start_weights,
                 ROW_NUMBER() OVER (PARTITION BY contract_address ORDER BY evt_block_time DESC) AS ranking
-            FROM lbps_weight_update c
-        ) w
+            FROM lbps_weight_update
+        ) AS w
         WHERE ranking = 1
     ),
 
     zipped_lbps_tokens_weights AS (
-        SELECT 
+        SELECT
             name,
             pool_id,
             l.pool_address,
             start_time,
             end_time,
             explode(arrays_zip(tokens, start_weights)) AS zipped
-        FROM lbps_list l
-        LEFT JOIN last_weight_update w
+        FROM lbps_list AS l
+        LEFT JOIN last_weight_update AS w
         ON w.pool_address = l.pool_address
     ),
-    
+
     lbps_tokens_weights AS (
-        SELECT 
+        SELECT
             name,
             pool_id,
             pool_address,
@@ -93,30 +93,30 @@ WITH lbps_call_create AS (
             zipped.start_weights AS start_weight
         FROM zipped_lbps_tokens_weights
     ),
-    
+
     lbps_info AS (
-        SELECT 
+        SELECT
             *
         FROM (
-            SELECT 
+            SELECT
                 *,
-               ROW_NUMBER() OVER (PARTITION BY pool_address ORDER BY start_weight DESC) AS ranking 
+               ROW_NUMBER() OVER (PARTITION BY pool_address ORDER BY start_weight DESC) AS ranking
             FROM lbps_tokens_weights
             WHERE token NOT IN {{ non_lbp_tokens }}
-        ) l
+        ) AS l
         WHERE ranking = 1
     )
-    
-    SELECT 
+
+    SELECT
         name,
         pool_id,
         token AS token_sold,
         t.symbol AS token_symbol,
         start_time,
         COALESCE(end_time, '2999-01-01') AS end_time
-    FROM lbps_info l
-    LEFT JOIN {{ ref('tokens_erc20') }} t
+    FROM lbps_info AS l
+    LEFT JOIN {{ ref('tokens_erc20') }} AS t
     ON l.token = t.contract_address
     AND t.blockchain = 'ethereum'
     ORDER BY pool_id
-    
+

@@ -12,13 +12,13 @@
 
 WITH base_locks AS (
         SELECT d.provider, ts AS locked_at, locktime AS unlocked_at, ts AS updated_at
-        FROM {{ source('balancer_ethereum', 'veBAL_call_create_lock') }} l
-        JOIN {{ source('balancer_ethereum', 'veBAL_evt_Deposit') }} d
+        FROM {{ source('balancer_ethereum', 'veBAL_call_create_lock') }} AS l
+        INNER JOIN {{ source('balancer_ethereum', 'veBAL_evt_Deposit') }} AS d
         ON d.evt_tx_hash = l.call_tx_hash
 
         UNION ALL
 
-        SELECT provider, cast(null as numeric(38)) AS locked_at, locktime AS unlocked_at, ts AS updated_at
+        SELECT provider, cast(null AS NUMERIC) AS locked_at, locktime AS unlocked_at, ts AS updated_at
         FROM {{ source('balancer_ethereum', 'veBAL_evt_Deposit') }}
         WHERE value = 0
     ),
@@ -44,7 +44,7 @@ WITH base_locks AS (
             provider,
             evt_block_number AS block_number,
             evt_block_time AS block_time,
-            SUM(value/1e18) AS delta_bpt
+            SUM(value / 1e18) AS delta_bpt
         FROM {{ source('balancer_ethereum', 'veBAL_evt_Deposit') }}
         GROUP BY provider, block_number, block_time
     ),
@@ -54,7 +54,7 @@ WITH base_locks AS (
             provider,
             evt_block_number AS block_number,
             evt_block_time AS block_time,
-            -SUM(value/1e18) AS delta_bpt
+            -SUM(value / 1e18) AS delta_bpt
         FROM {{ source('balancer_ethereum', 'veBAL_evt_Withdraw') }}
         GROUP BY provider, block_number, block_time
     ),
@@ -65,7 +65,7 @@ WITH base_locks AS (
             SELECT * FROM deposits
             UNION ALL
             SELECT * FROM withdrawals
-        ) union_all
+        ) AS union_all
         GROUP BY provider, block_number, block_time
     ),
 
@@ -81,7 +81,7 @@ WITH base_locks AS (
                 UNBOUNDED PRECEDING AND
                 CURRENT ROW
             ) AS bpt_balance
-        FROM bpt_locked_balance b
+        FROM bpt_locked_balance
     ),
 
     double_counting AS (
@@ -89,16 +89,16 @@ WITH base_locks AS (
             block_number,
             block_time,
             updated_at,
-            unix_timestamp(block_time) AS block_timestamp,
             b.provider AS wallet_address,
             bpt_balance,
             unlocked_at,
-            bpt_balance / (365*86400) AS slope,
-            (unlocked_at - unix_timestamp(block_time)) * bpt_balance / (365*86400) AS bias
-        FROM cumulative_balances b
-        LEFT JOIN locks_info l
+            timestamp(block_time) AS block_timestamp,
+            bpt_balance / (365 * 86400) AS slope,
+            (unlocked_at - timestamp(block_time)) * bpt_balance / (365 * 86400) AS bias
+        FROM cumulative_balances AS b
+        LEFT JOIN locks_info AS l
         ON l.provider = b.provider
-        AND l.updated_at <= unix_timestamp(block_time)
+        AND timestamp(l.updated_at) <= timestamp(block_time)
     ),
 
     max_updated_at AS (
@@ -120,9 +120,9 @@ SELECT
     a.unlocked_at,
     a.slope,
     a.bias,
-    date_trunc('day', a.block_time) as block_date
-FROM double_counting a
-INNER JOIN max_updated_at b
+    date_trunc('day', a.block_time) AS block_date
+FROM double_counting AS a
+INNER JOIN max_updated_at AS b
 ON a.block_number = b.block_number
 AND a.block_time = b.block_time
 AND a.wallet_address = b.wallet_address
