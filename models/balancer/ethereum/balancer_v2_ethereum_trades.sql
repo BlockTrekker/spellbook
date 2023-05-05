@@ -14,17 +14,17 @@
 with v2 as (
     select
         '2' as version,
-        tokenOut as token_bought_address,
-        amountOut as token_bought_amount_raw,
-        tokenIn as token_sold_address,
-        amountIn as token_sold_amount_raw,
-        poolAddress as project_contract_address,
+        tokenout as token_bought_address,
+        amountout as token_bought_amount_raw,
+        tokenin as token_sold_address,
+        amountin as token_sold_amount_raw,
+        pooladdress as project_contract_address,
         s.evt_block_time,
         s.evt_tx_hash,
         s.evt_index
     from {{ source('balancer_v2_ethereum', 'Vault_evt_Swap') }} as s
     inner join {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }} as p
-    on s.poolId = p.poolId
+        on s.poolid = p.poolid
     {% if not is_incremental() %}
         where s.evt_block_time >= '{{ project_start_date }}'
     {% endif %}
@@ -35,13 +35,14 @@ with v2 as (
 
 prices as (
     select * from {{ source('prices', 'usd') }}
-    where blockchain = 'ethereum'
-    {% if not is_incremental() %}
+    where
+        blockchain = 'ethereum'
+        {% if not is_incremental() %}
         and minute >= '{{ project_start_date }}'
     {% endif %}
-    {% if is_incremental() %}
-        and minute >= date_trunc('day', now() - interval '1 week')
-    {% endif %}
+        {% if is_incremental() %}
+            and minute >= date_trunc('day', now() - interval '1 week')
+        {% endif %}
 )
 
 
@@ -77,22 +78,27 @@ select
     '' as trace_address
 from v2 as trades
 inner join {{ source('ethereum', 'transactions') }} as tx
-    on trades.evt_tx_hash = tx.hash
-    {% if not is_incremental() %}
+    on
+        trades.evt_tx_hash = tx.hash
+        {% if not is_incremental() %}
     and tx.block_time >= '{{ project_start_date }}'
     {% endif %}
-    {% if is_incremental() %}
-    and tx.block_time >= date_trunc('day', now() - interval '1 week')
-    {% endif %}
+        {% if is_incremental() %}
+            and tx.block_time >= date_trunc('day', now() - interval '1 week')
+        {% endif %}
 left join {{ ref('tokens_erc20') }} as erc20a
-    on trades.token_bought_address = erc20a.contract_address
-    and erc20a.blockchain = 'ethereum'
+    on
+        trades.token_bought_address = erc20a.contract_address
+        and erc20a.blockchain = 'ethereum'
 left join {{ ref('tokens_erc20') }} as erc20b
-    on trades.token_sold_address = erc20b.contract_address
-    and erc20b.blockchain = 'ethereum'
+    on
+        trades.token_sold_address = erc20b.contract_address
+        and erc20b.blockchain = 'ethereum'
 left join prices as p_bought
-    on p_bought.minute = date_trunc('minute', trades.evt_block_time)
-    and p_bought.contract_address = trades.token_bought_address
+    on
+        p_bought.minute = date_trunc('minute', trades.evt_block_time)
+        and p_bought.contract_address = trades.token_bought_address
 left join prices as p_sold
-    on p_sold.minute = date_trunc('minute', trades.evt_block_time)
-    and p_sold.contract_address = trades.token_sold_address
+    on
+        p_sold.minute = date_trunc('minute', trades.evt_block_time)
+        and p_sold.contract_address = trades.token_sold_address

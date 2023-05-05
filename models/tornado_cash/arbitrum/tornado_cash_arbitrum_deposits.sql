@@ -15,12 +15,13 @@
 
 {% set arbitrum_start_date = '2021-11-29' %}
 
-SELECT tc.evt_block_time AS block_time
-, '0x82af49447d8a07e3bd95bd0d56f35241523fbab1' AS currency_contract
-, 'ETH' AS currency_symbol
-, 'arbitrum' AS blockchain
-, 'classic' AS tornado_version
-, at.from AS depositor
+SELECT
+    tc.evt_block_time AS block_time,
+    '0x82af49447d8a07e3bd95bd0d56f35241523fbab1' AS currency_contract,
+    'ETH' AS currency_symbol,
+    'arbitrum' AS blockchain,
+    'classic' AS tornado_version,
+    at.from AS depositor
 , tc.contract_address AS contract_address
 , CASE WHEN tc.contract_address='0x84443cfd09a48af6ef360c6976c5392ac5023a1f' THEN 0.1
         WHEN tc.contract_address='0xd47438c816c9e7f2e2888e060936a499af9582b3' THEN 1
@@ -31,7 +32,7 @@ SELECT tc.evt_block_time AS block_time
 , tc.leafIndex AS leaf_index
 , tc.evt_index
 , TRY_CAST(date_trunc('DAY', tc.evt_block_time) AS date) AS block_date
-FROM {{ source('tornado_cash_arbitrum','ETHTornado_evt_Deposit') }} tc
+FROM {{ source('tornado_cash_arbitrum','ETHTornado_evt_Deposit') }} AS tc
 INNER JOIN {{ source('arbitrum','transactions') }} at
         ON at.hash=tc.evt_tx_hash
         {% if not is_incremental() %}

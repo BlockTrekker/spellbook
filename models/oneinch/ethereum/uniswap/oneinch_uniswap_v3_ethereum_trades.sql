@@ -1,4 +1,4 @@
-{{  config(
+{{ config(
         schema='oneinch_uniswap_v3_ethereum',
         alias='trades',
         partition_by = ['block_date'],
@@ -15,11 +15,10 @@
 {% set blockchain = 'ethereum' %}
 {% set blockchain_symbol = 'ETH' %}
 
-WITH uniswap AS
-(
+WITH uniswap AS (
     SELECT
         call_block_number,
-        output_returnAmount,
+        output_returnamount,
         amount,
         pools,
         call_tx_hash,
@@ -31,16 +30,16 @@ WITH uniswap AS
     WHERE
         call_success
         {% if is_incremental() %}
-        AND call_block_time >= date_trunc("day", now() - interval '1 week')
+            AND call_block_time >= date_trunc("day", now() - interval "1 week")
         {% else %}
-        AND call_block_time >= '{{project_start_date}}'
+        AND call_block_time >= '{{ project_start_date }}'
         {% endif %}
-        
+
     UNION ALL
 
     SELECT
         call_block_number,
-        output_returnAmount,
+        output_returnamount,
         amount,
         pools,
         call_tx_hash,
@@ -52,16 +51,16 @@ WITH uniswap AS
     WHERE
         call_success
         {% if is_incremental() %}
-        AND call_block_time >= date_trunc("day", now() - interval '1 week')
+            AND call_block_time >= date_trunc("day", now() - interval "1 week")
         {% else %}
-        AND call_block_time >= '{{project_start_date}}'
+        AND call_block_time >= '{{ project_start_date }}'
         {% endif %}
-        
+
     UNION ALL
 
     SELECT
         call_block_number,
-        output_returnAmount,
+        output_returnamount,
         amount,
         pools,
         call_tx_hash,
@@ -73,16 +72,16 @@ WITH uniswap AS
     WHERE
         call_success
         {% if is_incremental() %}
-        AND call_block_time >= date_trunc("day", now() - interval '1 week')
+            AND call_block_time >= date_trunc("day", now() - interval "1 week")
         {% else %}
-        AND call_block_time >= '{{project_start_date}}'
+        AND call_block_time >= '{{ project_start_date }}'
         {% endif %}
-        
+
     UNION ALL
 
     SELECT
         call_block_number,
-        output_returnAmount,
+        output_returnamount,
         amount,
         pools,
         call_tx_hash,
@@ -94,16 +93,16 @@ WITH uniswap AS
     WHERE
         call_success
         {% if is_incremental() %}
-        AND call_block_time >= date_trunc("day", now() - interval '1 week')
+            AND call_block_time >= date_trunc("day", now() - interval "1 week")
         {% else %}
-        AND call_block_time >= '{{project_start_date}}'
+        AND call_block_time >= '{{ project_start_date }}'
         {% endif %}
-        
+
     UNION ALL
 
     SELECT
         call_block_number,
-        output_returnAmount,
+        output_returnamount,
         amount,
         pools,
         call_tx_hash,
@@ -115,16 +114,16 @@ WITH uniswap AS
     WHERE
         call_success
         {% if is_incremental() %}
-        AND call_block_time >= date_trunc("day", now() - interval '1 week')
+            AND call_block_time >= date_trunc("day", now() - interval "1 week")
         {% else %}
-        AND call_block_time >= '{{project_start_date}}'
+        AND call_block_time >= '{{ project_start_date }}'
         {% endif %}
-        
+
     UNION ALL
 
     SELECT
         call_block_number,
-        output_returnAmount,
+        output_returnamount,
         amount,
         pools,
         call_tx_hash,
@@ -136,242 +135,256 @@ WITH uniswap AS
     WHERE
         call_success
         {% if is_incremental() %}
-        AND call_block_time >= date_trunc("day", now() - interval '1 week')
+            AND call_block_time >= date_trunc("day", now() - interval "1 week")
         {% else %}
-        AND call_block_time >= '{{project_start_date}}'
+        AND call_block_time >= '{{ project_start_date }}'
         {% endif %}
-)
-, token_bought as
-(
+),
+
+token_bought AS (
     SELECT
-        call_block_number
-        , output_returnAmount
-        , amount
-        , CASE
+        call_block_number,
+        output_returnamount,
+        amount,
+        CASE
             WHEN CAST(pools[array_size(pools) - 1] / POWER(2, 252) as int) & 2 != 0
             THEN '{{burn_address}}'
             ELSE to
-        END as dstToken
+        END AS `dstToken`
         , pools
         , call_tx_hash
         , call_trace_address
         , call_block_time
         , contract_address
     FROM
-    (
-        SELECT
-            uniswap.call_block_number
-            , uniswap.output_returnAmount
-            , uniswap.amount
-            , uniswap.pools
-            , uniswap.call_tx_hash
-            , uniswap.call_trace_address
-            , uniswap.call_block_time
-            , uniswap.contract_address
-            , traces.to
-            , traces.from
-            , ROW_NUMBER() OVER (
-                PARTITION BY uniswap.call_tx_hash, uniswap.call_trace_address
-                ORDER BY traces.trace_address desc
-                ) as first_transfer_trace
-        FROM
-            uniswap
-        LEFT JOIN
-            {{ source('ethereum', 'traces') }} AS traces
-            ON traces.tx_hash = uniswap.call_tx_hash
-            AND traces.block_number = uniswap.call_block_number
-            AND traces.from != uniswap.contract_address
-            AND COALESCE(uniswap.call_trace_address, CAST(ARRAY() as array<bigint>)) = SLICE(traces.trace_address, 1, COALESCE(array_size(uniswap.call_trace_address), 0))
-            AND COALESCE(array_size(uniswap.call_trace_address), 0) + 2 = COALESCE(array_size(traces.trace_address), 0)
-            AND SUBSTRING(traces.input,1,10) = '0xa9059cbb' --find the token address that transfer() was called on
-            AND traces.call_type = 'call'
-            {% if is_incremental() %}
-            AND traces.block_time >= date_trunc("day", now() - interval '1 week')
-            {% else %}
-            AND traces.block_time >= '{{project_start_date}}'
+        (
+            SELECT
+                uniswap.call_block_number,
+                uniswap.output_returnamount,
+                uniswap.amount,
+                uniswap.pools,
+                uniswap.call_tx_hash,
+                uniswap.call_trace_address,
+                uniswap.call_block_time,
+                uniswap.contract_address,
+                traces.to,
+                traces.from,
+                ROW_NUMBER() OVER (
+                    PARTITION BY uniswap.call_tx_hash, uniswap.call_trace_address
+                    ORDER BY traces.trace_address DESC
+                ) AS `first_transfer_trace`
+            FROM
+                uniswap
+            LEFT JOIN
+                {{ source('ethereum', 'traces') }}
+                ON
+                    traces.tx_hash = uniswap.call_tx_hash
+                    AND traces.block_number = uniswap.call_block_number
+                    AND traces.from != uniswap.contract_address
+                    AND COALESCE(uniswap.call_trace_address, CAST(ARRAY() as array<bigint>)) = SLICE(traces.trace_address, 1, COALESCE(array_size(uniswap.call_trace_address), 0))
+                    AND COALESCE(array_size(uniswap.call_trace_address), 0) + 2 = COALESCE(array_size(traces.trace_address), 0)
+                    AND SUBSTRING(traces.input, 1, 10) = "0xa9059cbb" --find the token address that transfer() was called on
+                    AND traces.call_type = "call"
+                    {% if is_incremental() %}
+                        AND traces.block_time >= date_trunc("day", now() - interval "1 week")
+                    {% else %}
+            AND traces.block_time >= '{{ project_start_date }}'
             {% endif %}
-    )
+        )
     WHERE first_transfer_trace = 1
-)
-, token_sold as
-(
+),
+
+token_sold AS (
     SELECT
-        call_block_number
-        , output_returnAmount
-        , amount
-        , COALESCE(to, '{{burn_address}}') AS srcToken
-        , pools
-        , call_tx_hash
-        , call_trace_address
-        , call_block_time
-        , contract_address
+        call_block_number,
+        output_returnamount,
+        amount,
+        COALESCE(to, '{{burn_address}}') AS srctoken,
+        pools,
+        call_tx_hash,
+        call_trace_address,
+        call_block_time,
+        contract_address
     FROM
-    (
-        SELECT
-            uniswap.call_block_number
-            , uniswap.output_returnAmount
-            , uniswap.amount
-            , uniswap.pools
-            , uniswap.call_tx_hash
-            , uniswap.call_trace_address
-            , uniswap.call_block_time
-            , uniswap.contract_address
-            , traces.to
-            , traces.from
-            , ROW_NUMBER() OVER (
-                PARTITION BY uniswap.call_tx_hash, uniswap.call_trace_address
-                ORDER BY traces.trace_address
-                ) as first_transfer_trace
-        FROM
-            uniswap
-        LEFT JOIN
-            {{ source('ethereum', 'traces') }} AS traces
-            ON traces.tx_hash = uniswap.call_tx_hash
-            AND traces.block_number = uniswap.call_block_number
-            AND COALESCE(uniswap.call_trace_address, CAST(ARRAY() as array<bigint>)) = SLICE(traces.trace_address, 1, COALESCE(array_size(uniswap.call_trace_address), 0))
-            AND COALESCE(array_size(uniswap.call_trace_address), 0) + 3 = COALESCE(array_size(traces.trace_address), 0)
-            AND SUBSTRING(traces.input,1,10) = '0x23b872dd' --find the token address that transfer() was called on
-            AND traces.call_type = 'call'
-            {% if is_incremental() %}
-            AND traces.block_time >= date_trunc("day", now() - interval '1 week')
-            {% else %}
-            AND traces.block_time >= '{{project_start_date}}'
+        (
+            SELECT
+                uniswap.call_block_number,
+                uniswap.output_returnamount,
+                uniswap.amount,
+                uniswap.pools,
+                uniswap.call_tx_hash,
+                uniswap.call_trace_address,
+                uniswap.call_block_time,
+                uniswap.contract_address,
+                traces.to,
+                traces.from,
+                ROW_NUMBER() OVER (
+                    PARTITION BY uniswap.call_tx_hash, uniswap.call_trace_address
+                    ORDER BY traces.trace_address
+                ) AS `first_transfer_trace`
+            FROM
+                uniswap
+            LEFT JOIN
+                {{ source('ethereum', 'traces') }}
+                ON
+                    traces.tx_hash = uniswap.call_tx_hash
+                    AND traces.block_number = uniswap.call_block_number
+                    AND COALESCE(uniswap.call_trace_address, CAST(ARRAY() as array<bigint>)) = SLICE(traces.trace_address, 1, COALESCE(array_size(uniswap.call_trace_address), 0))
+                    AND COALESCE(array_size(uniswap.call_trace_address), 0) + 3 = COALESCE(array_size(traces.trace_address), 0)
+                    AND SUBSTRING(traces.input, 1, 10) = "0x23b872dd" --find the token address that transfer() was called on
+                    AND traces.call_type = "call"
+                    {% if is_incremental() %}
+                        AND traces.block_time >= date_trunc("day", now() - interval "1 week")
+                    {% else %}
+            AND traces.block_time >= '{{ project_start_date }}'
             {% endif %}
-    )
+        )
     WHERE first_transfer_trace = 1
-)
-, oneinch as
-(
+),
+
+oneinch AS (
     SELECT
-        src.call_block_number as block_number
-        ,src.call_block_time as block_time
-        ,'1inch' AS project
-        ,'UNI v3' AS version
-        ,CAST(NULL as string) AS taker
-        ,CAST(NULL as string) as maker
-        ,src.output_returnAmount AS token_bought_amount_raw
-        ,src.amount AS token_sold_amount_raw
-        ,CAST(NULL as double) AS amount_usd
-        ,token_bought.dstToken AS token_bought_address
-        ,token_sold.srcToken AS token_sold_address
-        ,src.contract_address AS project_contract_address
-        ,src.call_tx_hash as tx_hash
-        ,src.call_trace_address AS trace_address
-        ,CAST(-1 as integer) AS evt_index
+        src.call_block_number AS block_number,
+        src.call_block_time AS block_time,
+        "1inch" AS project,
+        "UNI v3" AS version,
+        CAST(NULL AS string) AS taker,
+        CAST(NULL AS string) AS maker,
+        src.output_returnamount AS token_bought_amount_raw,
+        src.amount AS token_sold_amount_raw,
+        CAST(NULL AS double) AS amount_usd,
+        token_bought.dsttoken AS token_bought_address,
+        token_sold.srctoken AS token_sold_address,
+        src.contract_address AS project_contract_address,
+        src.call_tx_hash AS tx_hash,
+        src.call_trace_address AS trace_address,
+        CAST(-1 AS integer) AS `evt_index`
     FROM
-        uniswap as src
+        uniswap
     INNER JOIN token_bought
-        ON src.call_tx_hash = token_bought.call_tx_hash
-        AND src.call_block_number = token_bought.call_block_number
-        AND src.call_trace_address = token_bought.call_trace_address
+        ON
+            src.call_tx_hash = token_bought.call_tx_hash
+            AND src.call_block_number = token_bought.call_block_number
+            AND src.call_trace_address = token_bought.call_trace_address
     INNER JOIN token_sold
-        ON src.call_tx_hash = token_sold.call_tx_hash
-        AND src.call_block_number = token_sold.call_block_number
-        AND src.call_trace_address = token_sold.call_trace_address
+        ON
+            src.call_tx_hash = token_sold.call_tx_hash
+            AND src.call_block_number = token_sold.call_block_number
+            AND src.call_trace_address = token_sold.call_trace_address
 )
+
 SELECT
-    '{{blockchain}}' AS blockchain
-    ,src.project
-    ,src.version
-    ,date_trunc('day', src.block_time) AS block_date
-    ,src.block_time
-    ,src.block_number
-    ,token_bought.symbol AS token_bought_symbol
-    ,token_sold.symbol AS token_sold_symbol
-    ,case
-        when lower(token_bought.symbol) > lower(token_sold.symbol) then concat(token_sold.symbol, '-', token_bought.symbol)
-        else concat(token_bought.symbol, '-', token_sold.symbol)
-    end as token_pair
-    ,src.token_bought_amount_raw / power(10, token_bought.decimals) AS token_bought_amount
-    ,src.token_sold_amount_raw / power(10, token_sold.decimals) AS token_sold_amount
-    ,CAST(src.token_bought_amount_raw AS DECIMAL(38,0)) AS token_bought_amount_raw
-    ,CAST(src.token_sold_amount_raw AS DECIMAL(38,0)) AS token_sold_amount_raw
-    ,coalesce(
-        src.amount_usd
-        , (src.token_bought_amount_raw / power(10,
-            CASE
-                WHEN src.token_bought_address = '{{burn_address}}'
-                    THEN 18
-                ELSE prices_bought.decimals
-            END
+    '{{ blockchain }}' AS blockchain,
+    src.project,
+    src.version,
+    date_trunc("day", src.block_time) AS block_date,
+    src.block_time,
+    src.block_number,
+    token_bought.symbol AS token_bought_symbol,
+    token_sold.symbol AS token_sold_symbol,
+    CASE
+        WHEN lower(token_bought.symbol) > lower(token_sold.symbol) THEN concat(token_sold.symbol, "-", token_bought.symbol)
+        ELSE concat(token_bought.symbol, "-", token_sold.symbol)
+    END AS token_pair,
+    src.token_bought_amount_raw / power(10, token_bought.decimals) AS token_bought_amount,
+    src.token_sold_amount_raw / power(10, token_sold.decimals) AS token_sold_amount,
+    CAST(src.token_bought_amount_raw AS decimal(38, 0)) AS token_bought_amount_raw,
+    CAST(src.token_sold_amount_raw AS decimal(38, 0)) AS token_sold_amount_raw,
+    coalesce(
+        src.amount_usd,
+        (
+            src.token_bought_amount_raw / power(
+                10,
+                CASE
+                    WHEN src.token_bought_address = '{{ burn_address }}'
+                        THEN 18
+                    ELSE prices_bought.decimals
+                END
             )
         )
         *
         (
             CASE
-                WHEN src.token_bought_address = '{{burn_address}}'
+                WHEN src.token_bought_address = '{{ burn_address }}'
                     THEN prices_eth.price
                 ELSE prices_bought.price
             END
-        )
-        , (src.token_sold_amount_raw / power(10,
-            CASE
-                WHEN src.token_sold_address = '{{burn_address}}'
-                    THEN 18
-                ELSE prices_sold.decimals
-            END
+        ),
+        (
+            src.token_sold_amount_raw / power(
+                10,
+                CASE
+                    WHEN src.token_sold_address = '{{ burn_address }}'
+                        THEN 18
+                    ELSE prices_sold.decimals
+                END
             )
         )
         *
         (
             CASE
-                WHEN src.token_sold_address = '{{burn_address}}'
+                WHEN src.token_sold_address = '{{ burn_address }}'
                     THEN prices_eth.price
                 ELSE prices_sold.price
             END
         )
-    ) AS amount_usd
-    ,src.token_bought_address
-    ,src.token_sold_address
-    ,coalesce(src.taker, tx.from) AS taker
-    ,src.maker
-    ,src.project_contract_address
-    ,src.tx_hash
-    ,tx.from AS tx_from
-    ,tx.to AS tx_to
-    ,CAST(src.trace_address as array<long>) as trace_address
-    ,src.evt_index
+    ) AS amount_usd,
+    src.token_bought_address,
+    src.token_sold_address,
+    coalesce(src.taker, tx.from) AS taker,
+    src.maker,
+    src.project_contract_address,
+    src.tx_hash,
+    tx.from AS tx_from,
+    tx.to AS tx_to,
+    CAST(src.trace_address AS ARRAY<long>) AS trace_address,
+    src.evt_index
 FROM
-    oneinch as src
-INNER JOIN {{ source('ethereum', 'transactions') }} as tx
-    ON src.tx_hash = tx.hash
-    AND src.block_number = tx.block_number
-    {% if is_incremental() %}
-    AND tx.block_time >= date_trunc("day", now() - interval '1 week')
-    {% else %}
-    AND tx.block_time >= '{{project_start_date}}'
+    oneinch
+INNER JOIN {{ source('ethereum', 'transactions') }}
+    ON
+        src.tx_hash = tx.hash
+        AND src.block_number = tx.block_number
+        {% if is_incremental() %}
+            AND tx.block_time >= date_trunc("day", now() - interval "1 week")
+        {% else %}
+    AND tx.block_time >= '{{ project_start_date }}'
     {% endif %}
-LEFT JOIN {{ ref('tokens_erc20') }} as token_bought
-    ON token_bought.contract_address = src.token_bought_address
-    AND token_bought.blockchain = '{{blockchain}}'
-LEFT JOIN {{ ref('tokens_erc20') }} as token_sold
-    ON token_sold.contract_address = src.token_sold_address
-    AND token_sold.blockchain = '{{blockchain}}'
-LEFT JOIN {{ source('prices', 'usd') }} as prices_bought
-    ON prices_bought.minute = date_trunc('minute', src.block_time)
-    AND prices_bought.contract_address = src.token_bought_address
-    AND prices_bought.blockchain = '{{blockchain}}'
-    {% if is_incremental() %}
-    AND prices_bought.minute >= date_trunc("day", now() - interval '1 week')
-    {% else %}
-    AND prices_bought.minute >= '{{project_start_date}}'
+LEFT JOIN {{ ref('tokens_erc20') }}
+    ON
+        token_bought.contract_address = src.token_bought_address
+        AND token_bought.blockchain = '{{ blockchain }}'
+LEFT JOIN {{ ref('tokens_erc20') }}
+    ON
+        token_sold.contract_address = src.token_sold_address
+        AND token_sold.blockchain = '{{ blockchain }}'
+LEFT JOIN {{ source('prices', 'usd') }}
+    ON
+        prices_bought.minute = date_trunc("minute", src.block_time)
+        AND prices_bought.contract_address = src.token_bought_address
+        AND prices_bought.blockchain = '{{ blockchain }}'
+        {% if is_incremental() %}
+            AND prices_bought.minute >= date_trunc("day", now() - interval "1 week")
+        {% else %}
+    AND prices_bought.minute >= '{{ project_start_date }}'
     {% endif %}
-LEFT JOIN {{ source('prices', 'usd') }} as prices_sold
-    ON prices_sold.minute = date_trunc('minute', src.block_time)
-    AND prices_sold.contract_address = src.token_sold_address
-    AND prices_sold.blockchain = '{{blockchain}}'
-    {% if is_incremental() %}
-    AND prices_sold.minute >= date_trunc("day", now() - interval '1 week')
-    {% else %}
-    AND prices_sold.minute >= '{{project_start_date}}'
+LEFT JOIN {{ source('prices', 'usd') }}
+    ON
+        prices_sold.minute = date_trunc("minute", src.block_time)
+        AND prices_sold.contract_address = src.token_sold_address
+        AND prices_sold.blockchain = '{{ blockchain }}'
+        {% if is_incremental() %}
+            AND prices_sold.minute >= date_trunc("day", now() - interval "1 week")
+        {% else %}
+    AND prices_sold.minute >= '{{ project_start_date }}'
     {% endif %}
-LEFT JOIN {{ source('prices', 'usd') }} as prices_eth
-    ON prices_eth.minute = date_trunc('minute', src.block_time)
-    AND prices_eth.blockchain is null
-    AND prices_eth.symbol = '{{blockchain_symbol}}'
-    {% if is_incremental() %}
-    AND prices_eth.minute >= date_trunc("day", now() - interval '1 week')
-    {% else %}
-    AND prices_eth.minute >= '{{project_start_date}}'
+LEFT JOIN {{ source('prices', 'usd') }}
+    ON
+        prices_eth.minute = date_trunc("minute", src.block_time)
+        AND prices_eth.blockchain IS NULL
+        AND prices_eth.symbol = '{{ blockchain_symbol }}'
+        {% if is_incremental() %}
+            AND prices_eth.minute >= date_trunc("day", now() - interval "1 week")
+        {% else %}
+    AND prices_eth.minute >= '{{ project_start_date }}'
     {% endif %}
-;

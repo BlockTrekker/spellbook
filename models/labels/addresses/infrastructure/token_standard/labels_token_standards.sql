@@ -1,8 +1,8 @@
-{{config(alias='token_standards',
+{{ config(alias='token_standards',
         post_hook='{{ expose_spells(\'["arbitrum", "avalanche_c", "bnb", "ethereum", "fantom", "gnosis","goerli","optimism","polygon"]\',
                                     "sector",
                                     "labels",
-                                    \'["hildobby"]\') }}')}}
+                                    \'["hildobby"]\') }}') }}
 
 
 {% set labels_models = [
@@ -21,12 +21,11 @@ ref('labels_token_standards_arbitrum')
 
 SELECT *
 FROM (
-        {% for label in labels_models %}
+    {% for label in labels_models %}
         SELECT *
-        FROM  {{ label }}
+        FROM {{ label }}
         {% if not loop.last %}
-        UNION
+            UNION
         {% endif %}
-        {% endfor %}
-)
-;
+    {% endfor %}
+);

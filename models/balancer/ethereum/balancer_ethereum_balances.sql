@@ -71,7 +71,7 @@ daily_delta_balance_by_token AS (
             FROM
                 exits
         )
-        AS foo
+            AS foo
     GROUP BY 1, 2, 3
 ),
 
@@ -91,7 +91,7 @@ cumulative_balance_by_token AS (
                     token
                 ORDER BY day
             )
-        AS day_of_next_change,
+            AS day_of_next_change,
         sum(amount)
             OVER (
                 PARTITION BY
@@ -100,7 +100,7 @@ cumulative_balance_by_token AS (
                 ORDER BY day
                 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
             )
-        AS cumulative_amount
+            AS cumulative_amount
     FROM daily_delta_balance_by_token
 ),
 

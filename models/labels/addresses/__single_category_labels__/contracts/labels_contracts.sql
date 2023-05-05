@@ -1,21 +1,22 @@
-{{config(alias='contracts',
+{{ config(alias='contracts',
         post_hook='{{ expose_spells(\'["ethereum", "arbitrum", "gnosis", "optimism", "bnb", "avalanche_c", "fantom", "polygon"]\',
                                     "sector",
                                     "labels",
                                     \'["soispoke"]\') }}')
 }}
 
-SELECT 'ethereum' as blockchain,
-       address, 
-       concat(upper(substring(namespace,1,1)),substring(namespace,2)) || ': ' || name as name,
-       'contracts' as category,
-       'soispoke' as contributor,
-       'query' AS source,
-       date('2022-09-26') as created_at,
-       now() as updated_at,
-        'contracts' as model_name,
-       'identifier' as label_type
-FROM {{ source('ethereum','contracts') }} 
+SELECT
+    'ethereum' AS blockchain,
+    address,
+    concat(upper(substring(namespace, 1, 1)), substring(namespace, 2)) || ': ' || name AS name,
+    'contracts' AS category,
+    'soispoke' AS contributor,
+    'query' AS source,
+    date('2022-09-26') AS created_at,
+    now() AS updated_at,
+    'contracts' AS model_name,
+    'identifier' AS `label_type`
+FROM {{ source('ethereum','contracts') }}
 UNION 
 SELECT 'gnosis' as blockchain,
        address, 
@@ -26,7 +27,7 @@ SELECT 'gnosis' as blockchain,
        date('2022-09-26') as created_at,
        now() as updated_at,
         'contracts' as model_name,
-       'identifier' as label_type
+       'identifier' AS `label_type`
 FROM {{ source('gnosis','contracts') }} 
 UNION 
 SELECT 'avalanche_c' as blockchain,
@@ -38,7 +39,7 @@ SELECT 'avalanche_c' as blockchain,
        date('2022-09-26') as created_at,
        now() as updated_at,
         'contracts' as model_name,
-       'identifier' as label_type
+       'identifier' AS `label_type`
 FROM {{ source('avalanche_c','contracts') }} 
 UNION 
 SELECT 'arbitrum' as blockchain,
@@ -50,7 +51,7 @@ SELECT 'arbitrum' as blockchain,
        date('2022-09-26') as created_at,
        now() as updated_at,
        'contracts' as model_name,
-       'identifier' as label_type
+       'identifier' AS `label_type`
 FROM {{ source('arbitrum','contracts') }} 
 UNION 
 SELECT 'bnb' as blockchain,
@@ -62,7 +63,7 @@ SELECT 'bnb' as blockchain,
        date('2022-09-26') as created_at,
        now() as updated_at,
        'contracts' as model_name,
-       'identifier' as label_type
+       'identifier' AS `label_type`
 FROM {{ source('bnb','contracts') }} 
 UNION 
 SELECT 'optimism' as blockchain,
@@ -74,7 +75,7 @@ SELECT 'optimism' as blockchain,
        date('2022-09-26') as created_at,
        now() as updated_at,
        'contracts' as model_name,
-       'identifier' as label_type
+       'identifier' AS `label_type`
 FROM {{ source('optimism','contracts') }} 
 UNION 
 SELECT 'fantom' as blockchain,
@@ -86,7 +87,7 @@ SELECT 'fantom' as blockchain,
        date('2022-12-18') as created_at,
        now() as updated_at,
        'contracts' as model_name,
-       'identifier' as label_type
+       'identifier' AS `label_type`
 FROM {{ source('fantom','contracts') }} 
 UNION 
 SELECT 'polygon' as blockchain,
@@ -98,5 +99,5 @@ SELECT 'polygon' as blockchain,
        date('2023-01-27') as created_at,
        now() as updated_at,
        'contracts' as model_name,
-       'identifier' as label_type
-FROM {{ source('polygon','contracts') }} 
+       'identifier' AS `label_type`
+FROM {{ source('polygon','contracts') }}

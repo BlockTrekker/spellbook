@@ -27,11 +27,10 @@
 SELECT *
 FROM (
     {% for dex_model in dex_models %}
-    SELECT
-        *
-    FROM {{ dex_model }}
-    {% if not loop.last %}
-    UNION ALL
-    {% endif %}
+        SELECT *
+        FROM {{ dex_model }}
+        {% if not loop.last %}
+            UNION ALL
+        {% endif %}
     {% endfor %}
 )

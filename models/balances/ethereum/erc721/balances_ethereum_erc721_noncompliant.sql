@@ -18,5 +18,4 @@ multiple_owners as (
     having count(wallet_address) > 1
 )
 
-select distinct token_address as token_address FROM multiple_owners
-;
+select distinct token_address as token_address FROM multiple_owners;

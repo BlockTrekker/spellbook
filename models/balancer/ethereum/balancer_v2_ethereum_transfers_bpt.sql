@@ -17,14 +17,13 @@
 {% set project_start_date = '2021-04-20' %}
 
 WITH registered_pools AS (
-    SELECT DISTINCT
-      pooladdress AS pool_address
+    SELECT DISTINCT pooladdress AS pool_address
     FROM
-      {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }}
+        {{ source('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }}
     {% if is_incremental() %}
-    WHERE evt_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '1 week')
+        WHERE evt_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '1 week')
     {% endif %}
-  )
+)
 
 SELECT DISTINCT * FROM (
     SELECT
@@ -39,10 +38,12 @@ SELECT DISTINCT * FROM (
         bytea2numeric(SUBSTRING(logs.data, 32, 64)) AS value
     FROM {{ source('ethereum', 'logs') }} AS logs
     INNER JOIN registered_pools AS p ON p.pool_address = logs.contract_address
-    WHERE logs.topic1 = '{{ event_signature }}'
+    WHERE
+        logs.topic1 = '{{ event_signature }}'
         {% if not is_incremental() %}
         AND logs.block_time >= '{{ project_start_date }}'
         {% endif %}
         {% if is_incremental() %}
-        AND logs.block_time >= DATE_TRUNC('day', NOW() - INTERVAL 1 WEEK)
-        {% endif %} ) AS transfers
+            AND logs.block_time >= DATE_TRUNC('day', NOW() - INTERVAL 1 WEEK)
+        {% endif %}
+) AS transfers

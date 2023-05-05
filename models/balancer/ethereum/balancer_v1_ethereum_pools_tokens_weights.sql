@@ -28,14 +28,15 @@ WITH events AS (
         bind.denorm
     FROM {{ source('balancer_v1_ethereum', 'BPool_call_bind') }} AS bind
     INNER JOIN {{ source('ethereum', 'transactions') }} AS tx ON tx.hash = bind.call_tx_hash
-    WHERE bind.call_success = TRUE
+    WHERE
+        bind.call_success = TRUE
         {% if not is_incremental() %}
         AND bind.call_block_time >= '{{ bind_start_date }}'
         AND tx.block_time >= '{{ bind_start_date }}'
         {% endif %}
         {% if is_incremental() %}
-        AND bind.call_block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
-        AND tx.block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
+            AND bind.call_block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
+            AND tx.block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
         {% endif %}
 
     UNION ALL
@@ -50,14 +51,15 @@ WITH events AS (
         rebind.denorm
     FROM {{ source('balancer_v1_ethereum', 'BPool_call_rebind') }} AS rebind
     INNER JOIN {{ source('ethereum', 'transactions') }} AS tx ON tx.hash = rebind.call_tx_hash
-    WHERE rebind.call_success = TRUE
+    WHERE
+        rebind.call_success = TRUE
         {% if not is_incremental() %}
         AND rebind.call_block_time >= '{{ bind_start_date }}'
         AND tx.block_time >= '{{ bind_start_date }}'
         {% endif %}
         {% if is_incremental() %}
-        AND rebind.call_block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
-        AND tx.block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
+            AND rebind.call_block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
+            AND tx.block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
         {% endif %}
 
     UNION ALL
@@ -72,14 +74,15 @@ WITH events AS (
         "0" AS denorm
     FROM {{ source('balancer_v1_ethereum', 'BPool_call_unbind') }} AS unbind
     INNER JOIN {{ source('ethereum', 'transactions') }} AS tx ON tx.hash = unbind.call_tx_hash
-    WHERE unbind.call_success = TRUE
+    WHERE
+        unbind.call_success = TRUE
         {% if not is_incremental() %}
         AND unbind.call_block_time >= '{{ bind_start_date }}'
         AND tx.block_time >= '{{ bind_start_date }}'
         {% endif %}
         {% if is_incremental() %}
-        AND unbind.call_block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
-        AND tx.block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
+            AND unbind.call_block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
+            AND tx.block_time >= date_trunc("day", now() - INTERVAL 1 WEEK)
         {% endif %}
 ),
 

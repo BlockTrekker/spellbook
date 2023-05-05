@@ -15,7 +15,7 @@ WITH work_evt AS (
         _job AS job,
         _keeper AS keeper,
         _credit AS token,
-        cast(_amount as DOUBLE) / 1e18 AS amount
+        cast(_amount AS DOUBLE) / 1e18 AS amount
     FROM
         (
             SELECT
@@ -47,14 +47,15 @@ WITH work_evt AS (
                     'keep3r_network_ethereum',
                     'Keep3r_v2_evt_KeeperWork'
                 ) }}
-        ) keep3rWork
+        ) AS keep3rWork
     WHERE
-        _credit = LOWER('{{KP3R_token}}')
+        _credit = LOWER('{{ KP3R_token }}')
 ),
+
 reward_evt AS (
     SELECT
         CASE
-            WHEN LENGTH(_rewardedAt) = 10 THEN _rewardedAt :: INT :: TIMESTAMP
+            WHEN LENGTH(_rewardedAt) = 10 THEN CAST (CAST (_rewardedAt AS INT) AS TIMESTAMP)
             ELSE _rewardedAt
         END AS `timestamp`,
         evt_tx_hash AS tx_hash,
@@ -63,7 +64,7 @@ reward_evt AS (
         contract_address AS keep3r,
         _job AS job,
         NULL AS keeper,
-        '{{KP3R_token}}' AS token,
+        {{ KP3R_token }}' AS token,
         CAST(_currentCredits AS DOUBLE) / 1e18 AS amount,
         CAST(_periodCredits AS DOUBLE) / 1e18 AS period_credits
     FROM
@@ -95,8 +96,9 @@ reward_evt AS (
                     'keep3r_network_ethereum',
                     'Keep3r_v2_evt_LiquidityCreditsReward'
                 ) }}
-        ) rewards
+        ) AS rewards
 )
+
 SELECT
     `timestamp`,
     tx_hash,

@@ -14,54 +14,57 @@
 
 {% set project_start_date = '2022-08-09' %}
 
-WITH 
+WITH
 
-perp_events as (
-    SELECT evt_block_time                                              as block_time,
-           evt_block_number                                            as block_number,
-           CASE WHEN (baseAsset * 1) >= 0 THEN 'long' ELSE 'short' END as trade_type,       -- negative baseAsset is for short and positive is for long
-           'AVAX'                                                      as virtual_asset,    -- only AVAX can currently be traded on hubble exchange
-           ''                                                          as underlying_asset, -- there's no way to track the underlying asset as traders need to deposit into their margin account before they're able to trade which is tracked in a seperate event not tied to the margin positions opened.
-           quoteAsset / 1E6                                            as volume_usd,
-           CAST(NULL as double)                                        as fee_usd,          -- no event to track fees
-           CAST(NULL as double)                                        as margin_usd,       -- no event to track margin
-           CAST(quoteAsset as double)                                  as volume_raw,
-           trader,
-           contract_address                                            as market_address,
-           evt_index,
-           evt_tx_hash                                                 as tx_hash
-    FROM 
-    {{ source('hubble_exchange_avalanche_c', 'ClearingHouse_evt_PositionModified') }}
+perp_events AS (
+    SELECT
+        evt_block_time AS block_time,
+        evt_block_number AS block_number,
+        CASE WHEN (baseasset * 1) >= 0 THEN 'long' ELSE 'short' END AS trade_type,       -- negative baseAsset is for short and positive is for long
+        'AVAX' AS virtual_asset,    -- only AVAX can currently be traded on hubble exchange
+        '' AS underlying_asset, -- there's no way to track the underlying asset AS `traders` need to deposit into their margin account before they're able to trade which is tracked in a seperate event not tied to the margin positions opened.
+        quoteasset / 1E6 AS volume_usd,
+        CAST(NULL AS double) AS fee_usd,          -- no event to track fees
+        CAST(NULL AS double) AS margin_usd,       -- no event to track margin
+        CAST(quoteasset AS double) AS volume_raw,
+        trader,
+        contract_address AS market_address,
+        evt_index,
+        evt_tx_hash AS `tx_hash`
+    FROM
+        {{ source('hubble_exchange_avalanche_c', 'ClearingHouse_evt_PositionModified') }}
     {% if not is_incremental() %}
-    WHERE evt_block_time >= '{{project_start_date}}'
+    WHERE evt_block_time >= '{{ project_start_date }}'
     {% endif %}
     {% if is_incremental() %}
-    WHERE evt_block_time >= date_trunc("day", now() - interval '1 week')
+        WHERE evt_block_time >= date_trunc('day', now() - interval '1 week')
     {% endif %}
-), 
+),
 
-trade_data as (
+trade_data AS (
     -- close position calls 
-    SELECT call_block_number as block_number,
-           call_tx_hash      as tx_hash,
-           'close'           as trade_data
-    FROM 
-    {{ source('hubble_exchange_avalanche_c', 'ClearingHouse_call_closePosition') }}
-    WHERE call_success = true 
-    {% if not is_incremental() %}
-    AND call_block_time >= '{{project_start_date}}'
+    SELECT
+        call_block_number AS block_number,
+        call_tx_hash AS tx_hash,
+        'close' AS `trade_data`
+    FROM
+        {{ source('hubble_exchange_avalanche_c', 'ClearingHouse_call_closePosition') }}
+    WHERE
+        call_success = TRUE
+        {% if not is_incremental() %}
+    AND call_block_time >= '{{ project_start_date }}'
     {% endif %}
-    {% if is_incremental() %}
-    AND call_block_time >= date_trunc("day", now() - interval '1 week')
+        {% if is_incremental() %}
+            AND call_block_time >= date_trunc('day', now() - interval '1 week')
     {% endif %}
 
-    UNION
+    UNION ALL
 
     -- open position calls 
     SELECT
         call_block_number as block_number,
         call_tx_hash as tx_hash,
-        'open' as trade_data
+        'open' AS `trade_data`
     FROM 
     {{ source('hubble_exchange_avalanche_c', 'ClearingHouse_call_openPosition') }}
     WHERE call_success = true 
@@ -72,13 +75,13 @@ trade_data as (
     AND call_block_time >= date_trunc("day", now() - interval '1 week')
     {% endif %}
 
-    UNION
+    UNION ALL
 
     -- liquidate position events
     SELECT
         evt_block_number as block_number,
         evt_tx_hash as tx_hash,
-        'liquidate' as trade_data
+        'liquidate' AS `trade_data`
     FROM 
     {{ source('hubble_exchange_avalanche_c', 'ClearingHouse_evt_PositionLiquidated') }}
     WHERE 1 = 1
@@ -90,42 +93,45 @@ trade_data as (
     {% endif %}
 )
 
-SELECT 'avalanche_c'                    as blockchain,
-       'hubble_exchange'                as project,
-       '1'                              as version,
-       'hubble_exchange'                as frontend,
-       date_trunc('day', pe.block_time) as block_date,
-       pe.block_time,
-       pe.virtual_asset,
-       pe.underlying_asset,
-       'AVAX'                           as market,
-       pe.market_address,
-       pe.volume_usd,
-       pe.fee_usd,
-       pe.margin_usd,
-       COALESCE(
-                   td.trade_data || '-' || pe.trade_type, -- using the call/open functions to classify trades
-                   'adjust' || '-' || pe.trade_type
-           )                            as trade,
-       pe.trader,
-       pe.volume_raw,
-       pe.tx_hash,
-       txns.to                          as tx_to,
-       txns.from                        as tx_from,
-       pe.evt_index
-FROM 
-perp_events pe 
-INNER JOIN 
-{{ source('avalanche_c', 'transactions') }} txns 
-    ON pe.tx_hash = txns.hash
-    AND pe.block_number = txns.block_number
-    {% if not is_incremental() %}
-    AND txns.block_time >= '{{project_start_date}}'
+SELECT
+    'avalanche_c' AS blockchain,
+    'hubble_exchange' AS project,
+    '1' AS version,
+    'hubble_exchange' AS frontend,
+    date_trunc('day', pe.block_time) AS block_date,
+    pe.block_time,
+    pe.virtual_asset,
+    pe.underlying_asset,
+    'AVAX' AS market,
+    pe.market_address,
+    pe.volume_usd,
+    pe.fee_usd,
+    pe.margin_usd,
+    COALESCE(
+        td.trade_data || '-' || pe.trade_type, -- using the call/open functions to classify trades
+        'adjust' || '-' || pe.trade_type
+    ) AS trade,
+    pe.trader,
+    pe.volume_raw,
+    pe.tx_hash,
+    txns.to AS tx_to,
+    txns.from AS tx_from,
+    pe.evt_index
+FROM
+    perp_events
+INNER JOIN
+    {{ source('avalanche_c', 'transactions') }}
+    ON
+        pe.tx_hash = txns.hash
+        AND pe.block_number = txns.block_number
+        {% if not is_incremental() %}
+    AND txns.block_time >= '{{ project_start_date }}'
     {% endif %}
-    {% if is_incremental() %}
-    AND txns.block_time >= date_trunc("day", now() - interval '1 week')
-    {% endif %}
-LEFT JOIN 
-trade_data td 
-    ON pe.block_number = td.block_number
-    AND pe.tx_hash = td.tx_hash
+        {% if is_incremental() %}
+            AND txns.block_time >= date_trunc('day', now() - interval '1 week')
+        {% endif %}
+LEFT JOIN
+    trade_data
+    ON
+        pe.block_number = td.block_number
+        AND pe.tx_hash = td.tx_hash

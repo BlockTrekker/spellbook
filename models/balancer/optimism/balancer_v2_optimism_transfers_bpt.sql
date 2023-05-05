@@ -18,14 +18,13 @@
 {% set project_start_date = '2022-05-19' %}
 
 WITH registered_pools AS (
-    SELECT
-      DISTINCT poolAddress AS pool_address
+    SELECT DISTINCT pooladdress AS `pool_address`
     FROM
-      {{ source('balancer_v2_optimism', 'Vault_evt_PoolRegistered') }}
+        {{ source('balancer_v2_optimism', 'Vault_evt_PoolRegistered') }}
     {% if is_incremental() %}
-    WHERE evt_block_time >= DATE_TRUNC('day', NOW() - interval '1 week')
+        WHERE evt_block_time >= DATE_TRUNC('day', NOW() - interval '1 week')
     {% endif %} 
-  )
+)
 
 SELECT DISTINCT * FROM (
     SELECT
@@ -37,7 +36,7 @@ SELECT DISTINCT * FROM (
         logs.block_number AS evt_block_number,
         CONCAT('0x', SUBSTRING(logs.topic2, 27, 40)) AS from,
         CONCAT('0x', SUBSTRING(logs.topic3, 27, 40)) AS to,
-        bytea2numeric(SUBSTRING(logs.data, 32, 64)) AS value
+        bytea2numeric(SUBSTRING(logs.data, 32, 64)) AS `value`
     FROM {{ source('optimism', 'logs') }} logs
     INNER JOIN registered_pools p ON p.pool_address = logs.contract_address
     WHERE logs.topic1 = '{{ event_signature }}'
@@ -46,4 +45,5 @@ SELECT DISTINCT * FROM (
         {% endif %}
         {% if is_incremental() %}
         AND logs.block_time >= DATE_TRUNC('day', NOW() - interval '1 week')
-        {% endif %} ) transfers
+    {% endif %}
+) AS `transfers`

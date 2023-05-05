@@ -12,44 +12,44 @@
     )
 }}
 SELECT
-  *
-  , concat_ws(', ', val) AS val_string
+    *,
+    concat_ws(', ', val) AS val_string
 
-  FROM (
-    select 
-        date_trunc('day', evt_block_time) as block_date
-        ,evt_tx_hash as tx_hash
-        ,evt_block_number as block_number
-        ,evt_block_time as block_time
-        ,evt_index
-        ,about as recipient
-        ,creator as issuer
-        ,contract_address
-        ,key as key_raw
+FROM (
+    SELECT
+        date_trunc('day', evt_block_time) AS block_date,
+        evt_tx_hash AS tx_hash,
+        evt_block_number AS block_number,
+        evt_block_time AS block_time,
+        evt_index,
+        about AS recipient,
+        creator AS issuer,
+        contract_address,
+        key AS key_raw
         ,
---         REGEXP_REPLACE( --Replace invisible characters
-            decode(
-                unhex(
-                  if (
-                    substring(key, 1, 6) in ("0xab7e", "0x9e43"), --Handle for Clique
+        --         REGEXP_REPLACE( --Replace invisible characters
+        decode(
+            unhex(
+                if(
+                    substring(key, 1, 6) IN ('0xab7e', '0x9e43'), --Handle for Clique
                     hex(key),
                     substring(key, 3)
-                  )
-                ),
-                "utf8"
-              ) 
---         , '[[:cntrl:]]', '')
-        as key
-        ,val as val_raw
+                )
+            ),
+            'utf8'
+        )
+            --         , '[[:cntrl:]]', '')
+            AS key,
+        val AS val_raw,
 
-        ,split(unhex(substring(val, 3)), ",") as val
+        split(unhex(substring(val, 3)), ',') AS val,
 
-        ,bytea2numeric_v3(substring(val, 3)) AS val_byte2numeric
+        bytea2numeric_v3(substring(val, 3)) AS val_byte2numeric
 
-    from {{source('attestationstation_optimism','AttestationStation_evt_AttestationCreated')}}
-    where 
+    FROM {{ source('attestationstation_optimism','AttestationStation_evt_AttestationCreated') }}
+    WHERE
         true
         {% if is_incremental() %}
-        and evt_block_time >= date_trunc('day', now() - interval '1 week')
+            AND evt_block_time >= date_trunc('day', now() - interval '1 week')
         {% endif %}
-  ) a
+) AS a

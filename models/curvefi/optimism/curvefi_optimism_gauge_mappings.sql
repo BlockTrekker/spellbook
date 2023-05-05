@@ -36,4 +36,3 @@ FROM (
     WHERE evt_block_time >= NOW() - interval '1 week'
     {% endif %}
 ) a
-

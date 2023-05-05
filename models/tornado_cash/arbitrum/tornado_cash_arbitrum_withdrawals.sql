@@ -15,12 +15,13 @@
 
 {% set arbitrum_start_date = '2021-11-29' %}
 
-SELECT tc.evt_block_time AS block_time
-, '0x82af49447d8a07e3bd95bd0d56f35241523fbab1' AS currency_contract
-, 'ETH' AS currency_symbol
-, 'arbitrum' AS blockchain
-, 'classic' AS tornado_version
-, at.from AS tx_from
+SELECT
+    tc.evt_block_time AS block_time,
+    '0x82af49447d8a07e3bd95bd0d56f35241523fbab1' AS currency_contract,
+    'ETH' AS currency_symbol,
+    'arbitrum' AS blockchain,
+    'classic' AS tornado_version,
+    at.from AS tx_from
 , tc.nullifierHash AS nullifier
 , tc.fee/POWER(10, 18) AS fee
 , tc.relayer
@@ -34,7 +35,7 @@ SELECT tc.evt_block_time AS block_time
 , tc.evt_tx_hash AS tx_hash
 , tc.evt_index
 , TRY_CAST(date_trunc('DAY', tc.evt_block_time) AS date) AS block_date
-FROM {{ source('tornado_cash_arbitrum','ETHTornado_evt_Withdrawal') }} tc
+FROM {{ source('tornado_cash_arbitrum','ETHTornado_evt_Withdrawal') }} AS tc
 INNER JOIN {{ source('arbitrum','transactions') }} at
         ON at.hash=tc.evt_tx_hash
         {% if not is_incremental() %}

@@ -30,6 +30,7 @@ WITH regular_pools AS (
     FROM
         {{ ref('curvefi_ethereum_pool_details') }}
 ),
+
 regular_pools_deployed AS (
     SELECT
         version,
@@ -38,7 +39,7 @@ regular_pools_deployed AS (
         pool_address,
         CAST(
             NULL AS VARCHAR(5)
-        ) AS A,
+        ) AS a,
         CAST(
             NULL AS VARCHAR(5)
         ) AS mid_fee,
@@ -59,6 +60,7 @@ regular_pools_deployed AS (
     FROM
         regular_pools
 ),
+
 ---------------------------------------------------------------- V1 Pools ----------------------------------------------------------------
 plain_calls AS (
     SELECT
@@ -76,21 +78,22 @@ plain_calls AS (
     WHERE
         call_success
 ),
+
 plain_pools_deployed AS (
     SELECT
         'Factory V1 Plain' AS version,
         _name AS `name`,
         _symbol AS symbol,
         output_0 AS pool_address,
-        "_A" AS A,
+        '_A' AS a,
         _fee AS mid_fee,
         _fee AS out_fee,
         output_0 AS token_address,
         output_0 AS deposit_contract,
-        _coins [0] AS coin0,
-        _coins [1] AS coin1,
-        _coins [2] AS coin2,
-        _coins [3] AS coin3,
+        _coins[0] AS coin0,
+        _coins[1] AS coin1,
+        _coins[2] AS coin2,
+        _coins[3] AS coin3,
         CAST(
             NULL AS VARCHAR(5)
         ) AS undercoin0,
@@ -102,64 +105,65 @@ plain_pools_deployed AS (
         ) AS undercoin2,
         CAST(
             NULL AS VARCHAR(5)
-        ) AS undercoin3
+        ) AS `undercoin3`
     FROM
         plain_calls
 ),
+
 meta_calls AS (
-    SELECT
-        *
+    SELECT *
     FROM (
-        SELECT         
+        SELECT
             _name,
             _symbol,
             output_0,
             call_tx_hash,
             _base_pool,
             _coin,
-            "_A",
-            _fee 
-        FROM 
+            '_A',
+            _fee
+        FROM
         {{ source(
             'curvefi_ethereum',
             'CurveFactory_call_deploy_metapool' 
         ) }} --https://etherscan.io/address/0xb9fc157394af804a3578134a6585c0dc9cc990d4
         WHERE
-        call_success
+            call_success
 
-        UNION ALL 
+        UNION ALL
 
-        SELECT         
+        SELECT
             _name,
             _symbol,
             output_0,
             call_tx_hash,
             _base_pool,
             _coin,
-            "_A",
-            _fee 
-        FROM 
+            '_A',
+            _fee
+        FROM
         {{ source(
             'curvefi_ethereum',
             'MetaPoolFactory_call_deploy_metapool' 
         ) }} --https://etherscan.io/address/0x0959158b6040d32d04c301a72cbfd6b39e21c9ae
         WHERE
-        call_success
-    ) a
+            call_success
+    ) AS `a`
 ),
+
 meta_pools_deployed AS (
     SELECT
         'Factory V1 Meta' AS version,
         _name AS `name`,
         _symbol AS symbol,
         output_0 AS pool_address,
-        "_A" AS A,
+        '_A' AS a,
         _fee AS mid_fee,
         _fee AS out_fee,
         output_0 AS token_address,
         output_0 AS deposit_contract,
         _coin AS coin0,
-        r.token_address as coin1, --reference the token address of the base pool as coin1. meta pools swap into the base pool token, and then another swap is conducted.
+        r.token_address AS coin1, --reference the token address of the base pool as coin1. meta pools swap into the base pool token, and then another swap is conducted.
         CAST(
             NULL AS VARCHAR(5)
         ) AS coin2,
@@ -168,24 +172,24 @@ meta_pools_deployed AS (
         ) AS coin3,
         _coin AS undercoin0,
         --Listing underlying coins for the ExchangeUnderlying function
-        r.coin0 as undercoin1,
-        r.coin1 as undercoin2,
-        r.coin2 as undercoin3
+        r.coin0 AS undercoin1,
+        r.coin1 AS undercoin2,
+        r.coin2 AS `undercoin3`
     FROM
-        meta_calls mc 
-    LEFT JOIN regular_pools r ON r.pool_address = mc._base_pool
+        meta_calls
+    LEFT JOIN regular_pools ON r.pool_address = mc._base_pool
 ),
-v1_pools_deployed AS(
-    SELECT
-        *
+
+v1_pools_deployed AS (
+    SELECT *
     FROM
         plain_pools_deployed
     UNION ALL
-    SELECT
-        *
+    SELECT *
     FROM
         meta_pools_deployed
 ),
+
 ---------------------------------------------------------------- V2 Pools ----------------------------------------------------------------
 v2_pools_deployed AS (
     SELECT
@@ -193,15 +197,15 @@ v2_pools_deployed AS (
         _name AS `name`,
         _symbol AS symbol,
         output_0 AS pool_address,
-        p.`A` AS A,
+        p.`A` AS a,
         p.mid_fee AS mid_fee,
         p.out_fee AS out_fee,
         p.token AS token_address,
         output_0 AS deposit_contract,
-        coins [0] AS coin0,
-        coins [1] AS coin1,
-        coins [2] AS coin2,
-        coins [3] AS coin3,
+        coins[0] AS coin0,
+        coins[1] AS coin1,
+        coins[2] AS coin2,
+        coins[3] AS coin3,
         CAST(
             NULL AS VARCHAR(5)
         ) AS undercoin0,
@@ -213,57 +217,58 @@ v2_pools_deployed AS (
         ) AS undercoin2,
         CAST(
             NULL AS VARCHAR(5)
-        ) AS undercoin3
+        ) AS `undercoin3`
     FROM
         {{ source(
             'curvefi_ethereum',
             'CurveFactoryV2_evt_CryptoPoolDeployed'
         ) }}
-        p
-        LEFT JOIN {{ source(
+    LEFT JOIN {{ source(
             'curvefi_ethereum',
             'CurveFactoryV2_call_deploy_pool'
         ) }}
-        ON p.evt_block_time = call_block_time
-        AND p.evt_tx_hash = call_tx_hash
+        ON
+            p.evt_block_time = call_block_time
+            AND p.evt_tx_hash = call_tx_hash
 ),
+
 ---------------------------------------------------------------- unioning all 3 together ----------------------------------------------------------------
 pools AS (
-    SELECT
-        *
+    SELECT *
     FROM
         regular_pools_deployed
     UNION ALL
     SELECT
         pd.*,
-        gauge AS gauge_contract
+        gauge AS `gauge_contract`
     FROM
-        v1_pools_deployed pd
-        LEFT JOIN {{ source(
+        v1_pools_deployed
+    LEFT JOIN
+        {{ source(
             'curvefi_ethereum',
             'CurveFactory_evt_LiquidityGaugeDeployed'
         ) }}
-        g
         ON pd.pool_address = g.pool
     UNION ALL
     SELECT
         pd2.*,
-        gauge AS gauge_contract
+        gauge AS `gauge_contract`
     FROM
-        v2_pools_deployed pd2
-        LEFT JOIN {{ source(
+        v2_pools_deployed
+    LEFT JOIN
+        {{ source(
             'curvefi_ethereum',
             'CurveFactoryV2_evt_LiquidityGaugeDeployed'
         ) }}
-        g2
         ON pd2.pool_address = g2.token
 ),
 
 contract_name AS (
-    SELECT first(c.name, true) as name,
-           first(c.namespace, true) as namespace,
-           c.address
-    FROM {{ source('ethereum', 'contracts') }} c
+    SELECT
+        first(c.name, TRUE) AS name,
+        first(c.namespace, TRUE) AS namespace,
+        c.address
+    FROM {{ source('ethereum', 'contracts') }}
     INNER JOIN pools ON address = pool_address
     GROUP BY address
 )
@@ -278,8 +283,8 @@ SELECT
         ELSE 'yes'
     END AS decoded,
     namespace AS dune_namespace,
-    C.name AS dune_table_name,
-    A AS amplification_param,
+    c.name AS dune_table_name,
+    a AS amplification_param,
     mid_fee,
     out_fee,
     token_address,
@@ -296,8 +301,8 @@ SELECT
     array(coin0, coin1, coin2, coin3) as coins, --changing order to hopefully reset the CI
     gauge_contract
 FROM
-    pools p
-LEFT JOIN contract_name C
-    ON C.address = pool_address
+    pools
+LEFT JOIN contract_name
+    ON c.address = pool_address
 ORDER BY
     dune_table_name DESC

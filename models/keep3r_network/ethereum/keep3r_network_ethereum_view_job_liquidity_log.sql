@@ -13,7 +13,7 @@ WITH job_liquidities AS (
         ad.contract_address AS keep3r,
         ad._job AS job,
         ad._liquidity AS token,
-        CAST(ad._amount AS DOUBLE) / 1e18 AS amount
+        CAST(ad._amount AS DOUBLE) / 1e18 AS `amount`
     FROM
         (
             SELECT
@@ -29,7 +29,7 @@ WITH job_liquidities AS (
                     'keep3r_network_ethereum',
                     'Keep3r_evt_LiquidityAddition'
                 ) }}
-            UNION
+            UNION ALL
             SELECT
                 evt_block_time,
                 evt_tx_hash,
@@ -43,16 +43,17 @@ WITH job_liquidities AS (
                     'keep3r_network_ethereum',
                     'Keep3r_v2_evt_LiquidityAddition'
                 ) }}
-        ) ad
+        ) AS `ad`
     UNION ALL
     SELECT
         rm.evt_block_time AS `timestamp`,
         rm.evt_tx_hash AS tx_hash,
         rm.evt_index,
         'LiquidityWithdrawal' AS event,
-        rm.contract_address keep3r,
-        rm._job job,
-        rm._liquidity AS token,- CAST(rm._amount AS DOUBLE) / 1e18 AS amount
+        rm.contract_address AS keep3r,
+        rm._job AS job,
+        rm._liquidity AS token,
+        -CAST(rm._amount AS DOUBLE) / 1e18 AS `amount`
     FROM
         (
             SELECT
@@ -68,7 +69,7 @@ WITH job_liquidities AS (
                     'keep3r_network_ethereum',
                     'Keep3r_evt_LiquidityWithdrawal'
                 ) }}
-            UNION
+            UNION ALL
             SELECT
                 evt_block_time,
                 evt_tx_hash,
@@ -82,8 +83,9 @@ WITH job_liquidities AS (
                     'keep3r_network_ethereum',
                     'Keep3r_v2_evt_LiquidityWithdrawal'
                 ) }}
-        ) rm
+        ) AS `rm`
 ),
+
 df AS (
     SELECT
         `timestamp`,
@@ -96,7 +98,7 @@ df AS (
         amount
     FROM
         job_liquidities
-    UNION
+    UNION ALL
     SELECT
         migs.event,
         migs.evt_index,
@@ -105,52 +107,58 @@ df AS (
         migs.`timestamp`,
         migs.tx_hash,
         liqs.token AS token,
-        NULL AS amount
+        NULL AS `amount`
     FROM
-        {{ ref('keep3r_network_ethereum_view_job_migrations') }} AS migs
-        INNER JOIN (
-            -- generates 1 extra line per token of keep3r
-            SELECT
-                DISTINCT keep3r,
-                job,
-                token
-            FROM
-                job_liquidities
-        ) liqs
+        {{ ref('keep3r_network_ethereum_view_job_migrations') }}
+    INNER JOIN (
+        -- generates 1 extra line per token of keep3r
+        SELECT DISTINCT
+            keep3r,
+            job,
+            token
+        FROM
+            job_liquidities
+    ) AS liqs
         ON migs.keep3r = liqs.keep3r
 ),
+
 migration_out AS (
     SELECT
         *,
         CASE
             WHEN event = 'JobMigrationOut' THEN SUM(
-                - amount
-            ) over (
-                PARTITION BY keep3r,
-                job,
-                token rows unbounded preceding
+                -amount
+            ) OVER (
+                PARTITION BY
+                    keep3r,
+                    job,
+                    token
+                ROWS UNBOUNDED PRECEDING
             )
-        END AS migration_out
+        END AS `migration_out`
     FROM
         df
 ),
+
 migration_in AS (
     SELECT
         *,
         CASE
             WHEN event = 'JobMigrationIn' THEN LAG(
-                - migration_out
-            ) over (
-                PARTITION BY tx_hash,
-                keep3r,
-                token
+                -migration_out
+            ) OVER (
+                PARTITION BY
+                    tx_hash,
+                    keep3r,
+                    token
                 ORDER BY
                     evt_index
             )
-        END AS migration_in
+        END AS `migration_in`
     FROM
         migration_out
 )
+
 SELECT
     `timestamp`,
     tx_hash,
@@ -163,7 +171,7 @@ SELECT
         amount,
         migration_out,
         migration_in
-    ) AS amount
+    ) AS `amount`
 FROM
     migration_in
 ORDER BY

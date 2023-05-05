@@ -8,13 +8,14 @@
     )
 }}
 
-SELECT 'goerli' AS blockchain
-, et.to AS address
-, MIN_BY(et.from, et.block_number) AS first_funded_by
-, MIN(et.block_time) AS block_time
-, MIN(et.block_number) AS block_number
-, MIN_BY(et.tx_hash, et.block_number) AS tx_hash
-FROM {{ source('goerli', 'traces') }} et
+SELECT
+    'goerli' AS blockchain,
+    et.to AS address,
+    MIN_BY(et.from, et.block_number) AS first_funded_by,
+    MIN(et.block_time) AS block_time,
+    MIN(et.block_number) AS block_number,
+    MIN_BY(et.tx_hash, et.block_number) AS tx_hash
+FROM {{ source('goerli', 'traces') }} AS et
 {% if is_incremental() %}
 LEFT ANTI JOIN {{this}} ffb ON et.to = ffb.address
 {% endif %}
@@ -24,5 +25,4 @@ AND CAST(et.value AS double) > 0
 {% if is_incremental() %}
 AND et.block_time >= date_trunc('day', now() - interval '1 week')
 {% endif %}
-GROUP BY et.to
-;
+GROUP BY et.to;

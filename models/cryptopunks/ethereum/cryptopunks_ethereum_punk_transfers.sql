@@ -10,7 +10,7 @@
 
 select *
 from
-(
+    (
         select  from
                 , to
                 , evt_block_time
@@ -47,9 +47,9 @@ from
         ) c
         group by 1,2,3,4,5,6,7,8
 
-        union all
+    union all
 
-        select  '0x0000000000000000000000000000000000000000' as from
+    select '0x0000000000000000000000000000000000000000' as from
                 , to
                 , evt_block_time
                 , date_trunc('week',evt_block_time) as evt_block_time_week
@@ -60,5 +60,5 @@ from
         from {{ source('cryptopunks_ethereum','CryptoPunksMarket_evt_Assign') }}
         {% if is_incremental() %} where evt_block_time >= date_trunc('day', now() - interval '1 week') {% endif %}
 
-) d
+) as d
 order by evt_block_number desc, evt_index desc

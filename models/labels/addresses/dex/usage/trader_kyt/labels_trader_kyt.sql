@@ -8,88 +8,140 @@
     )
 }}
 
-with initial_bot_list AS (
-select distinct `from`
-from (select t1.`from`, date_trunc('month', t1.block_time) AS month, count(*) AS num_tx
-      from {{ source('ethereum', 'transactions') }} t1
-      INNER JOIN (select distinct `from`
-        from {{ source('ethereum', 'transactions') }}
-        where block_time > now() - interval '30' day) t2 on t1.`from` = t2.`from`
-      group by 1, 2
-      having count(*) > 1000
-      union all
-      select t1.`from`, date_trunc('month', t1.block_time) AS month, count(*) AS num_tx
-      from {{ source('polygon', 'transactions') }} t1
-        INNER JOIN (select distinct `from`
-        from {{ source('polygon', 'transactions') }}
-        where
-        block_time > now() - interval '30' day) t2 on t1.`from` = t2.`from`
-      group by 1, 2
-      having count(*) > 1000
-      union all
-      select t1.`from`, date_trunc('month', t1.block_time) AS month, count(*) AS num_tx
-      from {{ source('optimism', 'transactions') }} t1
-        INNER JOIN (select distinct `from`
-        from {{ source('optimism', 'transactions') }}
-        where block_time > now() - interval '30' day) t2 on t1.`from` = t2.`from`
-      group by 1, 2
-      having count(*) > 1000
-      union all
-      select t1.`from`, date_trunc('month', t1.block_time) AS month, count(*) AS num_tx
-      from {{ source('arbitrum', 'transactions') }} t1
-        INNER JOIN (select distinct `from`
-        from {{ source('arbitrum', 'transactions') }}
-        where block_time > now() - interval '30' day) t2 on t1.`from` = t2.`from`
-      group by 1, 2
-      having count(*) > 1000
-      union all
-      select t1.`from`, date_trunc('month', t1.block_time) AS month, count(*) AS num_tx
-      from {{ source('gnosis', 'transactions') }} t1
-        INNER JOIN (select distinct `from`
-        from {{ source('gnosis', 'transactions') }}
-        where block_time > now() - interval '30' day) t2 on t1.`from` = t2.`from`
-      group by 1, 2
-      having count(*) > 1000
-      union all
-      select t1.`from`, date_trunc('month', t1.block_time) AS month, count(*) AS num_tx
-      from {{ source('fantom', 'transactions') }} t1
-        INNER JOIN (select distinct `from`
-        from {{ source('fantom', 'transactions') }}
-        where block_time > now() - interval '30' day) t2 on t1.`from` = t2.`from`
-      group by 1, 2
-      having count(*) > 1000
-      union all
-      select t1.`from`, date_trunc('month', t1.block_time) AS month, count(*) AS num_tx
-      from {{ source('bnb', 'transactions') }} t1
-        INNER JOIN (select distinct `from`
-        from {{ source('bnb', 'transactions') }}
-        where block_time > now() - interval '30' day) t2 on t1.`from` = t2.`from`
-      group by 1, 2
-      having count(*) > 1000
-      union all
-      select t1.`from`, date_trunc('month', t1.block_time) AS month, count(*) AS num_tx
-      from {{ source('avalanche_c', 'transactions') }} t1
-        INNER JOIN (select distinct `from`
-        from {{ source('avalanche_c', 'transactions') }}
-        where block_time > now() - interval '30' day) t2 on t1.`from` = t2.`from`
-      group by 1, 2
-      having count(*) > 1000
-))
- 
-, final_bot_list AS (
-    select address, 'Likely Bot' AS trader_type
+with initial_bot_list as (
+    select distinct `from`
     from (
-        select cast(`from` AS varchar(100)) AS address
-        from initial_bot_list t1
+        select
+            t1.`from`,
+            date_trunc('month', t1.block_time) as month,
+            count(*) as `num_tx`
+        from {{ source('ethereum', 'transactions') }}
+        inner join (
+            select distinct `from`
+            from {{ source('ethereum', 'transactions') }}
+            where block_time > now() - interval '30' day
+        ) as `t2`
+            on t1.`from` = t2.`from`
+        group by 1, 2
+        having count(*) > 1000
+        union all
+        select
+            t1.`from`,
+            date_trunc('month', t1.block_time) as month,
+            count(*) as `num_tx`
+        from {{ source('polygon', 'transactions') }}
+        inner join (
+            select distinct `from`
+            from {{ source('polygon', 'transactions') }}
+            where
+                block_time > now() - interval '30' day
+        ) as `t2`
+            on t1.`from` = t2.`from`
+        group by 1, 2
+        having count(*) > 1000
+        union all
+        select
+            t1.`from`,
+            date_trunc('month', t1.block_time) as month,
+            count(*) as `num_tx`
+        from {{ source('optimism', 'transactions') }}
+        inner join (
+            select distinct `from`
+            from {{ source('optimism', 'transactions') }}
+            where block_time > now() - interval '30' day
+        ) as `t2`
+            on t1.`from` = t2.`from`
+        group by 1, 2
+        having count(*) > 1000
+        union all
+        select
+            t1.`from`,
+            date_trunc('month', t1.block_time) as month,
+            count(*) as `num_tx`
+        from {{ source('arbitrum', 'transactions') }}
+        inner join (
+            select distinct `from`
+            from {{ source('arbitrum', 'transactions') }}
+            where block_time > now() - interval '30' day
+        ) as `t2`
+            on t1.`from` = t2.`from`
+        group by 1, 2
+        having count(*) > 1000
+        union all
+        select
+            t1.`from`,
+            date_trunc('month', t1.block_time) as month,
+            count(*) as `num_tx`
+        from {{ source('gnosis', 'transactions') }}
+        inner join (
+            select distinct `from`
+            from {{ source('gnosis', 'transactions') }}
+            where block_time > now() - interval '30' day
+        ) as `t2`
+            on t1.`from` = t2.`from`
+        group by 1, 2
+        having count(*) > 1000
+        union all
+        select
+            t1.`from`,
+            date_trunc('month', t1.block_time) as month,
+            count(*) as `num_tx`
+        from {{ source('fantom', 'transactions') }}
+        inner join (
+            select distinct `from`
+            from {{ source('fantom', 'transactions') }}
+            where block_time > now() - interval '30' day
+        ) as `t2`
+            on t1.`from` = t2.`from`
+        group by 1, 2
+        having count(*) > 1000
+        union all
+        select
+            t1.`from`,
+            date_trunc('month', t1.block_time) as month,
+            count(*) as `num_tx`
+        from {{ source('bnb', 'transactions') }}
+        inner join (
+            select distinct `from`
+            from {{ source('bnb', 'transactions') }}
+            where block_time > now() - interval '30' day
+        ) as `t2`
+            on t1.`from` = t2.`from`
+        group by 1, 2
+        having count(*) > 1000
+        union all
+        select
+            t1.`from`,
+            date_trunc('month', t1.block_time) as month,
+            count(*) as `num_tx`
+        from {{ source('avalanche_c', 'transactions') }}
+        inner join (
+            select distinct `from`
+            from {{ source('avalanche_c', 'transactions') }}
+            where block_time > now() - interval '30' day
+        ) as `t2`
+            on t1.`from` = t2.`from`
+        group by 1, 2
+        having count(*) > 1000
+    )
+),
+
+final_bot_list as (
+    select
+        address,
+        'Likely Bot' as `trader_type`
+    from (
+        select cast(`from` as varchar(100)) as `address`
+        from initial_bot_list
         except (
             select address
             from {{ ref('labels_cex') }}
             union all 
-            select miner as address
+            select miner AS `address`
             from {{ ref('labels_miners') }}
             union all
             select
-                cast (lower(address) AS varchar (100))
+                cast (lower(address) AS `varchar` (100))
             from
            (VALUES
            ('0x7ed1e469fcb3ee19c0366d829e291451be638e59', 'https://freewallet.org/')
@@ -149,78 +201,91 @@ from (select t1.`from`, date_trunc('month', t1.block_time) AS month, count(*) AS
                , ('0xC333E80eF2deC2805F239E3f1e810612D294F771', 'Alameda Research')
                , ('0x20312e96b1a0568ac31c6630844a962383cc66c2', 'Coinspot gas supplir')
                , ('0x73f9b272abda7a97cb1b237d85f9a7236edb6f16', 'Binance Deposit')
-           ) AS data (address, label)
+           ) AS `data` (address, label)
        )
     )
-)
+),
 
-,active_traders AS (
-    SELECT tx_from,
-           sum(amount_usd)                                                            AS trade_amount,
-           case
-               when sum(amount_usd) >= cast(10000 AS double) and
-                    sum(amount_usd) < cast(100000 AS double) then 'Turtle trader'
-               when sum(amount_usd) >= cast(100000 AS double) and
-                    sum(amount_usd) < cast(500000 AS double) then 'Shark trader'
-               when sum(amount_usd) >= cast(500000 AS double) then 'Whale trader' end AS trader_type
+active_traders as (
+    select
+        tx_from,
+        sum(amount_usd) as trade_amount,
+        case
+            when
+                sum(amount_usd) >= cast(10000 as double)
+                and sum(amount_usd) < cast(100000 as double) then 'Turtle trader'
+            when
+                sum(amount_usd) >= cast(100000 as double)
+                and sum(amount_usd) < cast(500000 as double) then 'Shark trader'
+            when sum(amount_usd) >= cast(500000 as double) then 'Whale trader'
+        end as `trader_type`
     from {{ ref('dex_trades') }}
     where block_time > now() - interval '30' day
     group by 1
-    having sum(amount_usd) > cast (10000 AS double)
-)
+    having sum(amount_usd) > cast(10000 as double)
+),
 
-, Former_traders AS (
-    SELECT t.tx_from,
-           case
-               when t.monthly_trade_amount >= cast(10000 AS double) and
-                    t.monthly_trade_amount < cast(100000 AS double) then 'Former Turtle trader'
-               when t.monthly_trade_amount >= cast(100000 AS double) and
-                    t.monthly_trade_amount < cast(500000 AS double) then 'Former Shark trader'
-               when t.monthly_trade_amount >= cast(500000 AS double)
-                   then 'Former Whale trader' end AS trader_type
-    FROM (
-        SELECT t1.tx_from,
-               date_trunc('month', t1.block_time)                                           AS month,
-               sum(t1.amount_usd)                                                           AS monthly_trade_amount,
-               ROW_NUMBER() OVER (PARTITION BY t1.tx_from ORDER BY sum(t1.amount_usd) DESC) AS rn
-        FROM {{ ref('dex_trades') }} t1
-            join (select distinct tx_from from {{ ref('dex_trades') }} where block_time > now() - interval '3' month ) t3
-        on t3.tx_from = t1.tx_from
-            left join active_traders t2 on t1.tx_from = t2.tx_from
-        where t1.block_time >= now() - interval '1' year
-          and t1.block_time
+former_traders as (
+    select
+        t.tx_from,
+        case
+            when
+                t.monthly_trade_amount >= cast(10000 as double)
+                and t.monthly_trade_amount < cast(100000 as double) then 'Former Turtle trader'
+            when
+                t.monthly_trade_amount >= cast(100000 as double)
+                and t.monthly_trade_amount < cast(500000 as double) then 'Former Shark trader'
+            when t.monthly_trade_amount >= cast(500000 as double)
+                then 'Former Whale trader'
+        end as `trader_type`
+    from (
+        select
+            t1.tx_from,
+            date_trunc('month', t1.block_time) as month,
+            sum(t1.amount_usd) as monthly_trade_amount,
+            ROW_NUMBER() over (partition by t1.tx_from order by sum(t1.amount_usd) desc) as `rn`
+        from {{ ref('dex_trades') }}
+        inner join (select distinct tx_from from {{ ref('dex_trades') }} where block_time > now() - interval '3' month) as `t3`
+            on t3.tx_from = t1.tx_from
+        left join active_traders on t1.tx_from = t2.tx_from
+        where
+            t1.block_time >= now() - interval '1' year
+            and t1.block_time
             < now() - interval '30' day
-          and t2.tx_from is NULL
-        GROUP BY 1, 2
-        HAVING sum(t1.amount_usd) > cast (10000 AS double)
-        ) t
-    WHERE t.rn = 1
-    ORDER BY t.month, t.monthly_trade_amount DESC
-)
+            and t2.tx_from is null
+        group by 1, 2
+        having sum(t1.amount_usd) > cast(10000 as double)
+    ) as `t`
+    where t.rn = 1
+    order by t.month asc, t.monthly_trade_amount desc
+),
 
-, final AS (
-    SELECT cast(tx_from AS varchar(100)) AS address,
-           trader_type
+final as (
+    select
+        cast(tx_from as varchar(100)) as address,
+        trader_type
     from active_traders
     union all
-    SELECT cast(tx_from AS varchar(100)) AS address,
-           trader_type
-    from Former_traders
+    select
+        cast(tx_from as varchar(100)) as address,
+        trader_type
+    from former_traders
     union all
-    SELECT address,
-           trader_type
+    select
+        address,
+        trader_type
     from final_bot_list
 )
 
-select "multi"                         AS blockchain
-     , address
-     , trader_type                     AS name
-     , "dex"                           AS category
-     , "whiskey"                       AS contributor
-     , "query"                         AS source
-     , cast('2023-03-05' AS timestamp) AS created_at
-     , now()                           AS updated_at
-     , "usage"                         AS label_type
-     , "KYT.DexGuru"                   AS model_name
-from final
-;
+select
+    'multi' as blockchain,
+    address,
+    trader_type as name,
+    'dex' as category,
+    'whiskey' as contributor,
+    'query' as source,
+    cast('2023-03-05' as timestamp) as created_at,
+    now() as updated_at,
+    'usage' as label_type,
+    'KYT.DexGuru' as `model_name`
+from final;

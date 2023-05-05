@@ -17,8 +17,7 @@
 {% set project_start_date = '2021-04-20' %}
 
 WITH registered_pools AS (
-    SELECT DISTINCT
-        `poolAddress` AS pool_address
+    SELECT DISTINCT `poolAddress` AS pool_address
     FROM
         {{ source ('balancer_v2_ethereum', 'Vault_evt_PoolRegistered') }}
 )
@@ -33,11 +32,12 @@ SELECT
     bytea2numeric_v3(SUBSTRING(logs.data, 32, 64)) * 1 AS swap_fee_percentage
 FROM
     {{ source ('clustered_sources', 'clustered_logs') }} AS logs
-    INNER JOIN registered_pools ON registered_pools.pool_address = logs.contract_address
-WHERE logs.topic1 = '{{ event_signature }}'
-{% if not is_incremental() %}
+INNER JOIN registered_pools ON registered_pools.pool_address = logs.contract_address
+WHERE
+    logs.topic1 = '{{ event_signature }}'
+    {% if not is_incremental() %}
 AND logs.block_time >= '{{ project_start_date }}'
 {% endif %}
 {% if is_incremental() %}
-AND logs.block_time >= DATE_TRUNC('day', NOW() - INTERVAL 1 WEEK);
+    AND logs.block_time >= DATE_TRUNC('day', NOW() - INTERVAL 1 WEEK);
 {% endif %}

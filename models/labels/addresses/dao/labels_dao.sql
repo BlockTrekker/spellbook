@@ -16,12 +16,11 @@
 SELECT *
 FROM (
     {% for dao_model in dao_models %}
-    SELECT
-        *
-    FROM {{ dao_model }}
-    {% if not loop.last %}
-    UNION ALL
-    
-    {% endif %}
+        SELECT *
+        FROM {{ dao_model }}
+        {% if not loop.last %}
+            UNION ALL
+
+        {% endif %}
     {% endfor %}
 )

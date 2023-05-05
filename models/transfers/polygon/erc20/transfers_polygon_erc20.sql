@@ -12,70 +12,78 @@
 }}
 
 with sent_transfers as (
-    select 'send'           as transfer_type,
-           evt_tx_hash,
-           evt_index,
-           to             as wallet_address,
+    select
+        'send' as transfer_type,
+        evt_tx_hash,
+        evt_index,
+        to             as wallet_address,
            contract_address as token_address,
            evt_block_time,
-           value            as amount_raw
+           value            AS `amount_raw`
     from
         {{ source('erc20_polygon', 'evt_transfer') }}
     {% if is_incremental() %}
-    where evt_block_time >= date_trunc("day", now() - interval '1 week')
+        where evt_block_time >= date_trunc('day', now() - interval '1 week')
     {% endif %}
 ),
+
 received_transfers as (
-    select 'receive'                          as transfer_type,
-           evt_tx_hash,
-           evt_index,
-           "from"                             as wallet_address,
-           contract_address                   as token_address,
-           evt_block_time,
-           '-' || CAST(value AS VARCHAR(100)) as amount_raw
+    select
+        'receive' as transfer_type,
+        evt_tx_hash,
+        evt_index,
+        'from' as wallet_address,
+        contract_address as token_address,
+        evt_block_time,
+        '-' || CAST(value as varchar(100)) as `amount_raw`
     from
         {{ source('erc20_polygon', 'evt_transfer') }}
     {% if is_incremental() %}
-    where evt_block_time >= date_trunc("day", now() - interval '1 week')
+        where evt_block_time >= date_trunc('day', now() - interval '1 week')
     {% endif %}
 ),
+
 deposited_wmatic as (
-    select 'deposit'        as transfer_type,
-           evt_tx_hash,
-           evt_index,
-           dst              as wallet_address,
-           contract_address as token_address,
-           evt_block_time,
-           wad              as amount_raw
+    select
+        'deposit' as transfer_type,
+        evt_tx_hash,
+        evt_index,
+        dst as wallet_address,
+        contract_address as token_address,
+        evt_block_time,
+        wad as `amount_raw`
     from
         {{ source('mahadao_polygon', 'wmatic_evt_deposit') }}
     {% if is_incremental() %}
-    where evt_block_time >= date_trunc("day", now() - interval '1 week')
+        where evt_block_time >= date_trunc('day', now() - interval '1 week')
     {% endif %}
 ),
+
 withdrawn_wmatic as (
-    select 'withdrawn'                      as transfer_type,
-           evt_tx_hash,
-           evt_index,
-           src                              as wallet_address,
-           contract_address                 as token_address,
-           evt_block_time,
-           '-' || CAST(wad AS VARCHAR(100)) as amount_raw
+    select
+        'withdrawn' as transfer_type,
+        evt_tx_hash,
+        evt_index,
+        src as wallet_address,
+        contract_address as token_address,
+        evt_block_time,
+        '-' || CAST(wad as varchar(100)) as `amount_raw`
     from
         {{ source('mahadao_polygon', 'wmatic_evt_withdrawal') }}
     {% if is_incremental() %}
-    where evt_block_time >= date_trunc("day", now() - interval '1 week')
+        where evt_block_time >= date_trunc('day', now() - interval '1 week')
     {% endif %}
 )
-    
-select transfer_type,
-       'polygon'                        as blockchain,
-       evt_tx_hash,
-       evt_index,
-       wallet_address,
-       token_address,
-       evt_block_time,
-       CAST(amount_raw AS VARCHAR(100)) as amount_raw
+
+select
+    transfer_type,
+    'polygon' as blockchain,
+    evt_tx_hash,
+    evt_index,
+    wallet_address,
+    token_address,
+    evt_block_time,
+    CAST(amount_raw as varchar(100)) as `amount_raw`
 from sent_transfers
 union
 select transfer_type,
@@ -85,7 +93,7 @@ select transfer_type,
        wallet_address,
        token_address,
        evt_block_time,
-       CAST(amount_raw AS VARCHAR(100)) as amount_raw
+       CAST(amount_raw AS VARCHAR(100)) AS `amount_raw`
 from received_transfers
 union
 select transfer_type,
@@ -95,7 +103,7 @@ select transfer_type,
        wallet_address,
        token_address,
        evt_block_time,
-       CAST(amount_raw AS VARCHAR(100)) as amount_raw
+       CAST(amount_raw AS VARCHAR(100)) AS `amount_raw`
 from deposited_wmatic
 union
 select transfer_type,
@@ -105,5 +113,5 @@ select transfer_type,
        wallet_address,
        token_address,
        evt_block_time,
-       CAST(amount_raw AS VARCHAR(100)) as amount_raw
+       CAST(amount_raw AS VARCHAR(100)) AS `amount_raw`
 from withdrawn_wmatic

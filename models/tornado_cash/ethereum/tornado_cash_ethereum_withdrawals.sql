@@ -18,39 +18,42 @@
 {% set eth_erc20_pt2_start_date = '2021-04-02' %}
 
 -- Ethereum (ETH)
-SELECT tc.evt_block_time AS block_time
-, '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2' AS currency_contract
-, 'ETH' AS currency_symbol
-, 'ethereum' AS blockchain
-, 'classic' AS tornado_version
-, et.from AS tx_from
-, tc.nullifierHash AS nullifier
-, tc.fee/POWER(10, 18) AS fee
-, tc.relayer
-, tc.to AS recipient
-, tc.contract_address AS contract_address
-, CASE WHEN tc.contract_address='0x12d66f87a04a9e220743712ce6d9bb1b5616b8fc' THEN 0.1
-        WHEN tc.contract_address='0x47ce0c6ed5b0ce3d3a51fdb1c52dc66a7c3c2936' THEN 1
-        WHEN tc.contract_address='0x910cbd523d972eb0a6f4cae4618ad62622b39dbf' THEN 10
-        WHEN tc.contract_address='0xa160cdab225685da1d56aa342ad8841c3b53f291' THEN 100
-        END AS amount
-, tc.evt_tx_hash AS tx_hash
-, tc.evt_index
-, TRY_CAST(date_trunc('DAY', tc.evt_block_time) AS date) AS block_date
-FROM {{ source('tornado_cash_ethereum','eth_evt_Withdrawal') }} tc
-INNER JOIN {{ source('ethereum','transactions') }} et
-        ON et.hash=tc.evt_tx_hash
+SELECT
+    tc.evt_block_time AS block_time,
+    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2' AS currency_contract,
+    'ETH' AS currency_symbol,
+    'ethereum' AS blockchain,
+    'classic' AS tornado_version,
+    et.from AS tx_from,
+    tc.nullifierhash AS nullifier,
+    tc.fee / POWER(10, 18) AS fee,
+    tc.relayer,
+    tc.to AS recipient,
+    tc.contract_address AS contract_address,
+    CASE
+        WHEN tc.contract_address = '0x12d66f87a04a9e220743712ce6d9bb1b5616b8fc' THEN 0.1
+        WHEN tc.contract_address = '0x47ce0c6ed5b0ce3d3a51fdb1c52dc66a7c3c2936' THEN 1
+        WHEN tc.contract_address = '0x910cbd523d972eb0a6f4cae4618ad62622b39dbf' THEN 10
+        WHEN tc.contract_address = '0xa160cdab225685da1d56aa342ad8841c3b53f291' THEN 100
+    END AS amount,
+    tc.evt_tx_hash AS tx_hash,
+    tc.evt_index,
+    TRY_CAST(date_trunc('DAY', tc.evt_block_time) AS date) AS block_date
+FROM {{ source('tornado_cash_ethereum','eth_evt_Withdrawal') }} AS tc
+INNER JOIN {{ source('ethereum','transactions') }} AS et
+    ON
+        et.hash = tc.evt_tx_hash
         {% if not is_incremental() %}
-        AND et.block_time >= '{{ethereum_start_date}}'
+        AND et.block_time >= '{{ ethereum_start_date }}'
         {% endif %}
         {% if is_incremental() %}
-        AND et.block_time >= date_trunc("day", now() - interval '1 week')
+            AND et.block_time >= date_trunc('day', now() - interval '1 week')
         {% endif %}
 {% if not is_incremental() %}
-WHERE tc.evt_block_time >= '{{ethereum_start_date}}'
+WHERE tc.evt_block_time >= '{{ ethereum_start_date }}'
 {% endif %}
 {% if is_incremental() %}
-WHERE tc.evt_block_time >= date_trunc("day", now() - interval '1 week')
+    WHERE tc.evt_block_time >= date_trunc('day', now() - interval '1 week')
 {% endif %}
 
 UNION

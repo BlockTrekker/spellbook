@@ -14,16 +14,15 @@
 
 {% set project_start_date = '2021-08-31 08:13' %}
 
-WITH minute AS  -- This CTE generates a series of minute values
-    (
+WITH minute AS  -- This CTE generates a series of minute values    (
     SELECT *
     FROM
         (
         {% if not is_incremental() %}
-        SELECT explode(sequence(TIMESTAMP '{{project_start_date}}', CURRENT_TIMESTAMP, INTERVAL 1 minute)) AS minute -- 2021-08-31 08:13 is the timestamp of the first vault transaction
+        SELECT explode(sequence(TIMESTAMP '{{ project_start_date }}', CURRENT_TIMESTAMP, INTERVAL 1 minute)) AS minute -- 2021-08-31 08:13 is the timestamp of the first vault transaction
         {% endif %}
         {% if is_incremental() %}
-        SELECT explode(sequence(date_trunc("day", now() - interval '1 week'), CURRENT_TIMESTAMP, INTERVAL 1 minute)) AS minute
+        SELECT explode(sequence(date_trunc("day", now() - interval "1 week"), CURRENT_TIMESTAMP, INTERVAL 1 MINUTE)) AS minute
         {% endif %}
         )
     ),
@@ -33,8 +32,7 @@ GLP fees accrued to the Fee GLP contract and can be claimed by invoking function
 The Fee GLP contract can be found here: https://arbiscan.io/address/0x4e971a87900b931ff39d1aad67697f49835400b6
 */
 
-fglp_balances AS -- This CTE returns the accuals of WETH tokens in the Fee GLP contract in a designated minute
-    (    
+fglp_balances AS -- This CTE returns the accuals of WETH tokens in the Fee GLP contract in a designated minute    (
     SELECT -- This subquery aggregates the cumulative balance of WETH tokens in the Fee GLP contract over the minute series
         b.minute,
         b.weth_transfer_value,
@@ -47,27 +45,27 @@ fglp_balances AS -- This CTE returns the accuals of WETH tokens in the Fee GLP c
         FROM
             (
             SELECT -- This subquery truncates the block time to a minute and selects all the inbound tranfers of WETH tokens to the Fee GLP contract
-                date_trunc('minute', evt_block_time) AS minute,
+                date_trunc("minute", evt_block_time) AS minute,
                 ((value) / 1e18) AS transfer_value -- WETH 18dp
             FROM {{ source('erc20_arbitrum', 'evt_transfer') }}
-            WHERE `to` = '0x4e971a87900b931ff39d1aad67697f49835400b6' -- Fee GLP contract
-                AND `contract_address` = '0x82af49447d8a07e3bd95bd0d56f35241523fbab1' -- WETH Arbitrum Smart Contract
+            WHERE `to` = "0x4e971a87900b931ff39d1aad67697f49835400b6" -- Fee GLP contract
+                AND `contract_address` = "0x82af49447d8a07e3bd95bd0d56f35241523fbab1" -- WETH Arbitrum Smart Contract
                 {% if not is_incremental() %}
-                AND evt_block_time >= '{{project_start_date}}'
+                AND evt_block_time >= '{{ project_start_date }}'
                 {% endif %}
                 {% if is_incremental() %}
-                AND evt_block_time >= date_trunc("day", now() - interval '1 week')
+                AND evt_block_time >= date_trunc("day", now() - interval "1 week")
                 {% endif %}
-            ) a
+            ) AS a
         GROUP BY a.minute
-        ) b
+        ) AS b
     )
 
 SELECT
     x.minute,
-    TRY_CAST(date_trunc('DAY', x.minute) AS date) AS block_date,
-    COALESCE(x.fees_weth_generated,0) AS fees_weth_generated, -- Removes null values
-    COALESCE(x.fees_weth_cumulative,0) AS fees_weth_cumulative, -- Removes null values
+    TRY_CAST(date_trunc("DAY", x.minute) AS date) AS block_date,
+    COALESCE(x.fees_weth_generated, 0) AS fees_weth_generated, -- Removes null values
+    COALESCE(x.fees_weth_cumulative, 0) AS fees_weth_cumulative, -- Removes null values
     x.weth_current_price
 FROM
     (
@@ -76,7 +74,7 @@ FROM
         b.weth_transfer_value AS fees_weth_generated,
         last(b.weth_cum_balance, true) OVER (ORDER BY a.minute ASC) AS fees_weth_cumulative, -- extrapolation
         last(c.weth_current_price, true) OVER (ORDER BY a.minute ASC) AS weth_current_price -- extrapolation necessary for missing values arising from in data table syncing speed
-    FROM minute a
+    FROM minute AS a
     -- since minute a is incremental filtered, the following time filters are excess
     LEFT JOIN
         (
@@ -87,26 +85,26 @@ FROM
         FROM fglp_balances
         -- excess time filter
         {% if not is_incremental() %}
-        WHERE minute >= '{{project_start_date}}'
+        WHERE minute >= '{{ project_start_date }}'
         {% endif %}
         {% if is_incremental() %}
-        WHERE minute >= date_trunc("day", now() - interval '1 week')
+        WHERE minute >= date_trunc("day", now() - interval "1 week")
         {% endif %}
-        ) b
+        ) AS b
         ON a.minute = b.minute
     LEFT JOIN
         (
         SELECT
             minute,
             weth_current_price
-        FROM {{ref('gmx_arbitrum_glp_components')}}
+        FROM {{ ref('gmx_arbitrum_glp_components') }}
         -- excess time filter
         {% if not is_incremental() %}
-        WHERE minute >= '{{project_start_date}}'
+        WHERE minute >= '{{ project_start_date }}'
         {% endif %}
         {% if is_incremental() %}
-        WHERE minute >= date_trunc("day", now() - interval '1 week')
+        WHERE minute >= date_trunc("day", now() - interval "1 week")
         {% endif %}
-        ) c 
+        ) AS c
         ON a.minute = c.minute
-    ) x
+    ) AS x

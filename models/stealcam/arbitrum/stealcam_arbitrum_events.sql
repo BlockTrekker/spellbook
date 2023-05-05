@@ -15,59 +15,60 @@
 {% set project_start_date = '2023-03-10' %}
 
 with stealcam as (
-select
-    *
-    ,case when value > 0 then (value-(0.001*pow(10,18)))/11.0+(0.001*pow(10,18)) else 0 end as surplus_value
-FROM {{ source('stealcam_arbitrum', 'Stealcam_evt_Stolen') }} sc
-{% if is_incremental() %}
-WHERE evt_block_time >= date_trunc("day", now() - interval '1 week')
-{% endif %}
-{% if not is_incremental() %}
-WHERE evt_block_time >= '{{project_start_date}}'
+    select
+        *,
+        case when value > 0 then (value - (0.001 * pow(10, 18))) / 11.0 + (0.001 * pow(10, 18)) else 0 end as `surplus_value`
+    from {{ source('stealcam_arbitrum', 'Stealcam_evt_Stolen') }}
+    {% if is_incremental() %}
+        where evt_block_time >= date_trunc("day", now() - interval "1 week")
+    {% endif %}
+    {% if not is_incremental() %}
+WHERE evt_block_time >= '{{ project_start_date }}'
 {% endif %}
 
 )
 
-SELECT 'arbitrum' AS blockchain
-, 'Stealcam' AS project
-, 'v1' AS version
-, sc.evt_block_time AS block_time
-, date_trunc('day', sc.evt_block_time) AS block_date
-, sc.evt_block_number AS block_number
-, 'Single Item Trade' AS trade_type
-, 'Buy' AS trade_category
-, CASE WHEN sc.value=0 THEN 'Mint' ELSE 'Trade' END AS evt_type
-, sc.from AS seller
-, sc.to AS buyer
-, sc.contract_address AS nft_contract_address
-, 'Stealcam' AS collection
-, sc.id AS token_id
-, 'erc721' AS token_standard
-, CAST(1 AS DECIMAL(38,0)) AS number_of_items
-, '0x82af49447d8a07e3bd95bd0d56f35241523fbab1' AS currency_contract
-, 'ETH' AS currency_symbol
-, CAST(sc.value AS DECIMAL(38,0)) AS amount_raw
-, CAST(sc.value/POWER(10, 18) AS DOUBLE) AS amount_original
-, CAST(pu.price*sc.value/POWER(10, 18) AS DOUBLE) AS amount_usd
-, sc.contract_address AS project_contract_address
-, CAST(NULL AS string) AS aggregator_name
-, CAST(NULL AS string) AS aggregator_address
-, sc.evt_tx_hash AS tx_hash
-, at.from AS tx_from
-, at.to AS tx_to
-, CAST(0.1*surplus_value AS DECIMAL(38,0)) AS platform_fee_amount_raw
-, CAST(0.1*surplus_value/POWER(10, 18) AS double) AS platform_fee_amount
-, CAST(pu.price*0.1*surplus_value/POWER(10, 18) AS double) AS platform_fee_amount_usd
-, CAST(coalesce(100*(0.1*surplus_value/sc.value),0) AS double) AS platform_fee_percentage
-, 'ETH' as royalty_fee_currency_symbol
-, CAST(0.45*surplus_value AS DECIMAL(38,0)) AS royalty_fee_amount_raw
-, CAST(0.45*surplus_value/POWER(10, 18) AS double) AS royalty_fee_amount
-, CAST(pu.price*0.45*surplus_value/POWER(10, 18) AS double) AS royalty_fee_amount_usd
-, CAST(coalesce(100*(0.45*surplus_value/sc.value),0) AS double) AS royalty_fee_percentage
-, m._creator AS royalty_fee_receive_address
-, 'arbitrum-stealcam-' || sc.evt_tx_hash || '-' || sc.evt_index AS unique_trade_id
-FROM stealcam sc
-INNER JOIN {{ source('arbitrum', 'transactions') }} at ON at.block_number=sc.evt_block_number
+select
+    "arbitrum" as blockchain,
+    "Stealcam" as project,
+    "v1" as version,
+    sc.evt_block_time as block_time,
+    date_trunc("day", sc.evt_block_time) as block_date,
+    sc.evt_block_number as block_number,
+    "Single Item Trade" as trade_type,
+    "Buy" as trade_category,
+    case when sc.value = 0 then "Mint" else "Trade" end as evt_type,
+    sc.from as seller,
+    sc.to as buyer,
+    sc.contract_address as nft_contract_address,
+    "Stealcam" as collection,
+    sc.id as token_id,
+    "erc721" as token_standard,
+    CAST(1 as decimal(38, 0)) as number_of_items,
+    "0x82af49447d8a07e3bd95bd0d56f35241523fbab1" as currency_contract,
+    "ETH" as currency_symbol,
+    CAST(sc.value as decimal(38, 0)) as amount_raw,
+    CAST(sc.value / POWER(10, 18) as double) as amount_original,
+    CAST(pu.price * sc.value / POWER(10, 18) as double) as amount_usd,
+    sc.contract_address as project_contract_address,
+    CAST(NULL as string) as aggregator_name,
+    CAST(NULL as string) as aggregator_address,
+    sc.evt_tx_hash as tx_hash,
+    at.from AS `tx_from`
+, at.to AS `tx_to`
+, CAST(0.1*surplus_value AS DECIMAL(38,0)) AS `platform_fee_amount_raw`
+, CAST(0.1*surplus_value/POWER(10, 18) AS double) AS `platform_fee_amount`
+, CAST(pu.price*0.1*surplus_value/POWER(10, 18) AS double) AS `platform_fee_amount_usd`
+, CAST(coalesce(100*(0.1*surplus_value/sc.value),0) AS double) AS `platform_fee_percentage`
+, 'ETH' AS `royalty_fee_currency_symbol`
+, CAST(0.45*surplus_value AS DECIMAL(38,0)) AS `royalty_fee_amount_raw`
+, CAST(0.45*surplus_value/POWER(10, 18) AS double) AS `royalty_fee_amount`
+, CAST(pu.price*0.45*surplus_value/POWER(10, 18) AS double) AS `royalty_fee_amount_usd`
+, CAST(coalesce(100*(0.45*surplus_value/sc.value),0) AS double) AS `royalty_fee_percentage`
+, m._creator AS `royalty_fee_receive_address`
+, 'arbitrum-stealcam-' || sc.evt_tx_hash || '-' || sc.evt_index AS `unique_trade_id`
+from stealcam
+inner join {{ source('arbitrum', 'transactions') }} at ON at.block_number=sc.evt_block_number
     AND at.hash=sc.evt_tx_hash
     {% if is_incremental() %}
     AND at.block_time >= date_trunc("day", now() - interval '1 week')
@@ -88,7 +89,7 @@ INNER JOIN {{ source('stealcam_arbitrum', 'Stealcam_call_mint') }} m ON m.call_s
     AND m.id=sc.id
     {% if is_incremental() %}
     AND m.call_block_time >= date_trunc("day", now() - interval '1 week')
-    {% endif %}
-    {% if not is_incremental() %}
-    AND m.call_block_time >= '{{project_start_date}}'
+{% endif %}
+{% if not is_incremental() %}
+    AND m.call_block_time >= '{{ project_start_date }}'
     {% endif %}

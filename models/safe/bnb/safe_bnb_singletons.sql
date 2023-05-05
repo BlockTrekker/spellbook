@@ -12,7 +12,7 @@
 
 -- Fetch all known singleton/mastercopy addresses used via factories.
 -- Prior to 1.3.0, the factory didn't emit the singleton address with the ProxyCreation event,
-select distinct masterCopy as address 
+select distinct MASTERCOPY as ADDRESS
 from {{ source('gnosis_safe_bnb', 'ProxyFactory_v1_1_1_call_createProxy') }}
 
 union 

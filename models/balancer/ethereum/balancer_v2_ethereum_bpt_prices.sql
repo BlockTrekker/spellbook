@@ -38,14 +38,20 @@ WITH bpt_trades AS (
                 ELSE t.amountin
             END AS token_amount_raw
         FROM {{ source('balancer_v2_ethereum', 'Vault_evt_Swap') }} AS t
-        WHERE t.tokenin = SUBSTRING(t.poolid, 0, 42)
-        OR t.tokenout = SUBSTRING(t.poolid, 0, 42)
+        WHERE
+            t.tokenin = SUBSTRING(t.poolid, 0, 42)
+            OR t.tokenout = SUBSTRING(t.poolid, 0, 42)
     ) AS dexs
-    LEFT JOIN {{ ref('tokens_erc20') }} AS erc20a ON erc20a.contract_address = dexs.bpt_address
-    AND erc20a.blockchain = "ethereum"
-    INNER JOIN {{ ref('tokens_erc20') }} AS erc20b ON erc20b.contract_address = dexs.token_address
-    AND erc20b.blockchain = "ethereum"
-    LEFT JOIN {{ source('prices', 'usd') }} AS p ON p.minute = date_trunc("minute", dexs.block_time)
+    LEFT JOIN {{ ref('tokens_erc20') }} AS erc20a
+        ON
+            erc20a.contract_address = dexs.bpt_address
+            AND erc20a.blockchain = "ethereum"
+    INNER JOIN {{ ref('tokens_erc20') }} AS erc20b
+        ON
+            erc20b.contract_address = dexs.token_address
+            AND erc20b.blockchain = "ethereum"
+    LEFT JOIN {{ source('prices', 'usd') }}
+        AS p ON p.minute = date_trunc("minute", dexs.block_time)
     AND p.contract_address = dexs.token_address AND p.blockchain = "ethereum"
 ),
 

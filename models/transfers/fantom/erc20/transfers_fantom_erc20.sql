@@ -12,48 +12,49 @@
 }}
 
 with
-    sent_transfers as (
-        select 
-            'send'as transfer_type,
-            evt_tx_hash,
-            evt_index,
-            et.to as wallet_address,
-            contract_address as token_address,
-            evt_block_time,
-            value as amount_raw
-        from
-            {{ source('erc20_fantom', 'evt_transfer') }} et
-        {% if is_incremental() %}
-            where evt_block_time >= date_trunc("day", now() - interval '1 week')
-        {% endif %}
-    ),
-    received_transfers as (
-        select
-            'receive'as transfer_type,
-            evt_tx_hash,
-            evt_index,
-            et.from as wallet_address,
-            contract_address as token_address,
-            evt_block_time,
-            '-' || CAST(value AS VARCHAR(100)) as amount_raw
-        from
-            {{ source('erc20_fantom', 'evt_transfer') }} et
-        {% if is_incremental() %}
-            where evt_block_time >= date_trunc("day", now() - interval '1 week')
-        {% endif %}
-    )
+sent_transfers as (
+    select
+        'send' as transfer_type,
+        evt_tx_hash,
+        evt_index,
+        et.to as wallet_address,
+        contract_address as token_address,
+        evt_block_time,
+        value as `amount_raw`
+    from
+        {{ source('erc20_fantom', 'evt_transfer') }}
+    {% if is_incremental() %}
+        where evt_block_time >= date_trunc('day', now() - interval '1 week')
+    {% endif %}
+),
+
+received_transfers as (
+    select
+        'receive' as transfer_type,
+        evt_tx_hash,
+        evt_index,
+        et.from as wallet_address,
+        contract_address as token_address,
+        evt_block_time,
+        '-' || CAST(value as varchar(100)) as `amount_raw`
+    from
+        {{ source('erc20_fantom', 'evt_transfer') }}
+    {% if is_incremental() %}
+        where evt_block_time >= date_trunc('day', now() - interval '1 week')
+    {% endif %}
+)
 
 -- There is no need to add wrapped FTM deposits / withdrawals since wrapped FTM on fantom triggers transfer events for both.
-    
-select 
+
+select
     transfer_type,
-    'fantom' as blockchain, 
+    'fantom' as blockchain,
     evt_tx_hash,
     evt_index,
     wallet_address,
     token_address,
     evt_block_time,
-    CAST(amount_raw AS VARCHAR(100)) as amount_raw
+    CAST(amount_raw as varchar(100)) as `amount_raw`
 from sent_transfers
 
 union
@@ -66,5 +67,5 @@ select
     wallet_address,
     token_address,
     evt_block_time, 
-    CAST(amount_raw AS VARCHAR(100)) as amount_raw
+    CAST(amount_raw AS VARCHAR(100)) AS `amount_raw`
 from received_transfers

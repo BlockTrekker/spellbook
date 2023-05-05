@@ -1,7 +1,6 @@
-{{config(alias='validators_ethereum')}}
+{{ config(alias='validators_ethereum') }}
 
-SELECT distinct
-    'ethereum' as blockchain,
+SELECT DISTINCT 'ethereum' AS blockchain
     from AS address,
     'Ethereum Validator' as name,
     'infrastructure' AS category,

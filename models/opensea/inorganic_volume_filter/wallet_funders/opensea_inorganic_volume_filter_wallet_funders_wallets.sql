@@ -4,7 +4,7 @@
 )
 }}
 
-SELECT DISTINCT(buyer) as wallet FROM {{ ref('looksrare_ethereum_trades') }}
+SELECT DISTINCT buyer AS wallet FROM {{ ref('looksrare_ethereum_trades') }}
 
 UNION 
 
